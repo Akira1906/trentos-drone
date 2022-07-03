@@ -20,6 +20,7 @@ class AirSimClient:
     def execute_command(self, command):
         if command["type"] == "getLidarData":
             data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
+            print(data)
             return {"type": "lidar_data", "data": data}
         elif command["type"] == "takeoffAsync":
             self.client.takeoffAsync().join()
@@ -30,12 +31,18 @@ class AirSimClient:
         elif command["type"] == "moveToPositionAsync":
             self.client.moveToPositionAsync(command["x"], command["y"], command["z"], command["velocity"]).join()
             return {"type": "executed_command"}
-
-
+        elif command["type"] == "moveByVelocityBodyFrameAsync":
+            self.client.moveByVelocityBodyFrameAsync(command["vx"], command["vy"], command["vz"], \
+                                                    command["duration"]).join()
+            return {"type": "executed_command"}
+        elif command["type"] == "moveByRollPitchYawThrottleAsync":
+            self.client.moveByRollPitchYawThrottleAsync(command["roll"], command["pitch"], command["yaw"], \
+                                                        command["throttle"], command["duration"], VEHICLE).join()
+            return {"type": "executed_command"}
+        
 
 def parse_command(data):
     command_byte = struct.unpack("!H", data[:2])[0]
-    print(command_byte)
     if command_byte == 0:
         #getLidarData
         lidar = struct.unpack("!H", data[2:])[0]
@@ -61,6 +68,7 @@ def parse_command(data):
         return {"type": "moveByRollPitchYawThrottleAsync",  \
                 "roll": roll, "pitch": pitch, "yaw": yaw, "throttle": throttle, "duration": duration}
     
+
 def serialize_result(result):
     resp = b""
     if result["type"] == "lidar_data":
@@ -74,7 +82,7 @@ def serialize_result(result):
         resp += struct.pack("!3f", x, y, z)
 
         n_point_clouds = len(lidar_data.point_cloud)
-        print(n_point_clouds)
+
         resp += struct.pack("!I", n_point_clouds)
         
         for x in lidar_data.point_cloud:
@@ -83,13 +91,11 @@ def serialize_result(result):
         resp += struct.pack("!H", 1)
 
     print(len(resp))
-    print(resp)
     return resp
 
 
 def main():
     airsim_client = AirSimClient()
-    
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -113,7 +119,6 @@ def main():
                 result = airsim_client.execute_command(command)
                 resp = serialize_result(result)
                 conn.sendall(resp)
-
 
 
 if __name__ == "__main__":
