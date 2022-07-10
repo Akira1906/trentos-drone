@@ -294,7 +294,6 @@ static void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_requ
             Debug_LOG_INFO(
                 "OS_Socket_read() received %zu bytes of data",
                 actualLenRecv);
-            Debug_LOG_INFO("buffer is %c\n", buffer[0]);
             continue;
 
         case OS_ERROR_TRY_AGAIN:
@@ -332,6 +331,11 @@ static void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lida
 static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
     uint16_t takeoff = 1;
     getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
+}
+
+static void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer){
+    uint16_t hover = 2;
+    getData(socket, (char *)&hover, sizeof(uint16_t), buffer);
 }
 
 static float * parseLidarOrientation(char *buffer){
@@ -421,8 +425,12 @@ int run()
 
     Debug_LOG_INFO("Sending takeoffCommand\n");
     sendTakOffCommand(hSocket, buffer);
-    Debug_LOG_INFO("Takeof status %d\n", * (uint16_t*) buffer);
+    Debug_LOG_INFO("Takeoff status %d\n", * (uint16_t*) buffer);
 
+
+    Debug_LOG_INFO("Sending HoverCommand\n");
+    sendHoverCommand(hSocket, buffer);
+    Debug_LOG_INFO("Hover status %d\n", * (uint16_t*) buffer);
 
     OS_Socket_close(hSocket);
     free(position);
