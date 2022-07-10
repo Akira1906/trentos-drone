@@ -347,7 +347,6 @@ static float * parseLidarPosition(char *buffer){
 static float * parseLidarPoints(char *buffer, int * number_of_points){
     size_t n = sizeof(float) * 7;
     memcpy(number_of_points, buffer + n, sizeof(int));
-    Debug_LOG_INFO("NUMBER %d\n", *number_of_points);
     float * points = malloc(sizeof(float) * (*number_of_points));
     memcpy(points, buffer + sizeof(float) * 7 + sizeof(int), sizeof(float *) * (*number_of_points));
     return points;
@@ -402,7 +401,6 @@ int run()
     }
 
     Debug_LOG_INFO("Send request to host...");
-    Debug_LOG_INFO("BUFFER SIZE %lu\n", OS_DATAPORT_DEFAULT_SIZE);
     static char buffer[OS_DATAPORT_DEFAULT_SIZE];
 
     getLidarData(hSocket, buffer, 0);
@@ -413,14 +411,13 @@ int run()
     Debug_LOG_INFO("Lidar position %f\n %f\n %f\n", position[0], position[1], position[2]);
     int number_of_points = 0;
     float * points = parseLidarPoints(buffer, &number_of_points);
-    Debug_LOG_INFO("NUMBER LATER %d\n", number_of_points);
-    Debug_LOG_INFO("FIRST POINRT %f\n", *(float *) points);
+    
 
     for (int i = 0; i < number_of_points; i ++){
         Debug_LOG_INFO("point %f\n", points[i]);
     }
 
-    
+
     OS_Socket_close(hSocket);
     free(position);
     free(orientation);
