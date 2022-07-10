@@ -2,9 +2,10 @@ import socket
 import airsim
 import struct
 
-HOST = "127.0.0.1"
+HOST = "0.0.0.0"
 PORT = 8888
 
+#SHOULD BE COMPATIBLE WITH SETTINGS.JSON
 LIDARS = ["LidarSensorHor", "LidarSensorVer1", "LidarSensorVer2"]
 VEHICLE = "Drone1"
 
@@ -75,24 +76,23 @@ def serialize_result(result):
         lidar_data = result["data"]
         orientation = lidar_data.pose.orientation
         q0, q1, q2, q3 = orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val
-        resp += struct.pack("!4f", q0, q1, q2, q3)
+        resp += struct.pack("<4f", q0, q1, q2, q3)
 
         position = lidar_data.pose.position
         x, y, z = position.x_val, position.y_val, position.z_val
-        resp += struct.pack("!3f", x, y, z)
+        resp += struct.pack("<3f", x, y, z)
 
         n_point_clouds = len(lidar_data.point_cloud)
 
-        resp += struct.pack("!I", n_point_clouds)
+        resp += struct.pack("<I", n_point_clouds)
         
         for x in lidar_data.point_cloud:
-            resp += struct.pack("!f", x)
+            resp += struct.pack("<f", x)
     elif result["type"] == "executed_command":
         resp += struct.pack("!H", 1)
 
     print(len(resp))
     return resp
-
 
 def main():
     airsim_client = AirSimClient()
@@ -102,14 +102,13 @@ def main():
         s.bind((HOST, PORT))
         s.listen()
         conn, addr = s.accept()
-        
+    
         with conn:
             print(f"Connected by {addr}")
             while True:
                 data = conn.recv(1024)
                 if not data:
                     break
-                
                 try:
                     command = parse_command(data)
                 except Exception as e:
