@@ -7,17 +7,17 @@ PORT = 8888
 
 def generate_command(command_type):
     if command_type == "getLidarData":
-        return struct.pack("!HH", 0, 0)
+        return struct.pack("<HH", 0, 0)
     elif command_type == "takeoffAsync":
-        return struct.pack("!H", 1)
+        return struct.pack("<H", 1)
     elif command_type == "hoverAsync":
-        return struct.pack("!H", 2)
+        return struct.pack("<H", 2)
     elif command_type == "moveToPositionAsync":
-        return struct.pack("!H3fI", 3,  0, 0, -9, 5)
+        return struct.pack("<H3fI", 3,  0, 0, -9, 5)
     elif command_type == "moveByVelocityBodyFrameAsync":
-        return struct.pack("!H4f", 4, 0,0,-5,0.5)
+        return struct.pack("<H4f", 4, 0,0,-5,0.5)
     elif command_type == "moveByRollPitchYawThrottleAsync":
-        return struct.pack("!H5f", 5, 0,0, 40, 1, 0.5)
+        return struct.pack("<H5f", 5, 0,0, 40, 1, 0.5)
 
 
 def parse_lidar_data(data):
