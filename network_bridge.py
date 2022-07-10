@@ -43,10 +43,11 @@ class AirSimClient:
         
 
 def parse_command(data):
-    command_byte = struct.unpack("!H", data[:2])[0]
+    command_byte = struct.unpack("<H", data[:2])[0]
+    
     if command_byte == 0:
         #getLidarData
-        lidar = struct.unpack("!H", data[2:])[0]
+        lidar = struct.unpack("<H", data[2:])[0]
         return {"type": "getLidarData", "lidar": lidar}
     elif command_byte == 1:
         #takeoffAsync
@@ -56,16 +57,16 @@ def parse_command(data):
         return {"type": "hoverAsync"}
     elif command_byte == 3:
         #moveToPositionAsync
-        x, y, z, velocity = struct.unpack("!3fI", data[2:])
+        x, y, z, velocity = struct.unpack("<3fI", data[2:])
         return {"type": "moveToPositionAsync", "x": x, "y":y, "z":z, "velocity": velocity}
     elif command_byte == 4:
         #moveByVelocityBodyFrameAsync
-        vx, vy, vz, duration = struct.unpack("!4f", data[2:])
+        vx, vy, vz, duration = struct.unpack("<4f", data[2:])
         return {"type": "moveByVelocityBodyFrameAsync",  \
                 "vx":vx, "vy":vy, "vz": vz, "duration": duration}
     elif command_byte == 5:
         #moveByRollPitchYawThrottleAsync
-        roll, pitch, yaw, throttle, duration = struct.unpack("!5f", data[2:])
+        roll, pitch, yaw, throttle, duration = struct.unpack("<5f", data[2:])
         return {"type": "moveByRollPitchYawThrottleAsync",  \
                 "roll": roll, "pitch": pitch, "yaw": yaw, "throttle": throttle, "duration": duration}
     
@@ -89,7 +90,7 @@ def serialize_result(result):
         for x in lidar_data.point_cloud:
             resp += struct.pack("<f", x)
     elif result["type"] == "executed_command":
-        resp += struct.pack("!H", 1)
+        resp += struct.pack("<H", 1)
 
     print(len(resp))
     return resp
@@ -107,6 +108,7 @@ def main():
             print(f"Connected by {addr}")
             while True:
                 data = conn.recv(1024)
+                print(data)
                 if not data:
                     break
                 try:

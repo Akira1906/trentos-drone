@@ -263,7 +263,7 @@ waitForConnectionEstablished(
     return ret;
 }
 
-static void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, char *  buffer, size_t * resp_size){
+static void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, char *  buffer){
     size_t n;
     OS_Error_t ret;
     do
@@ -319,17 +319,19 @@ static void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_requ
         }
     }
     while (ret != OS_SUCCESS);
-
-    *resp_size = actualLenRecv;
     
 }
 
 static void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
     uint16_t request[2] = {0, lidar};
     size_t len_request = sizeof(uint16_t) * 2;
-    size_t buf_size = 0;
 
-    getData(socket, (char *)request, len_request, buffer, &buf_size);
+    getData(socket, (char *)request, len_request, buffer);
+}
+
+static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
+    uint16_t takeoff = 1;
+    getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
 }
 
 static float * parseLidarOrientation(char *buffer){
@@ -416,6 +418,10 @@ int run()
     for (int i = 0; i < number_of_points; i ++){
         Debug_LOG_INFO("point %f\n", points[i]);
     }
+
+    Debug_LOG_INFO("Sending takeoffCommand\n");
+    sendTakOffCommand(hSocket, buffer);
+    Debug_LOG_INFO("Takeof status %d\n", * (uint16_t*) buffer);
 
 
     OS_Socket_close(hSocket);
