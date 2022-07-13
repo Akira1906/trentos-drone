@@ -9,6 +9,7 @@ PORT = 8888
 #SHOULD BE COMPATIBLE WITH SETTINGS.JSON
 LIDARS = ["LidarSensorHor", "LidarSensorVer1", "LidarSensorVer2"]
 VEHICLE = "Drone1"
+DISTANCE = "Distance"
 
 class AirSimClient:
     def __init__(self):
@@ -46,6 +47,10 @@ class AirSimClient:
             lidar_data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
             data = self.process_lidar_data(lidar_data)
             return {"type": "lidar_data", "data": data}
+        elif command["type"] == "getLidarDataPosition":
+            lidar_data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
+            position = lidar_data.pose.position
+            return {"type": "lidar_data_position", "data": [position.x_val, position.y_val, position.z_val]}
         elif command["type"] == "takeoffAsync":
             self.client.takeoffAsync().join()
             return {"type": "executed_command"}
@@ -63,7 +68,13 @@ class AirSimClient:
             self.client.moveByRollPitchYawThrottleAsync(command["roll"], command["pitch"], command["yaw"], \
                                                         command["throttle"], command["duration"], VEHICLE).join()
             return {"type": "executed_command"}
-        
+        elif command["type"] == "moveByRollPitchYawZAsync":
+            self.client.moveByRollPitchYawZAsync(command["roll"], command["pitch"], command["yaw"], \
+                                                command["z"], command["duration"], VEHICLE).join()
+            return {"type": "executed_command"}
+        elif command["type"] == "getDistanceSensorData":
+            distance_data = self.client.getDistanceSensorData(DISTANCE, VEHICLE)
+            return {"type": "distance_data", "data":  distance_data.distance}
 
 def parse_command(data):
     command_byte = struct.unpack("<H", data[:2])[0]
@@ -92,7 +103,16 @@ def parse_command(data):
         roll, pitch, yaw, throttle, duration = struct.unpack("<5f", data[2:])
         return {"type": "moveByRollPitchYawThrottleAsync",  \
                 "roll": roll, "pitch": pitch, "yaw": yaw, "throttle": throttle, "duration": duration}
-    
+    elif command_byte == 6:
+        roll, pitch, yaw, z, duration = struct.unpack("<5f", data[2:])
+        return {"type": "moveByRollPitchYawZAsync", \
+                "roll": roll, "pitch": pitch, "yaw": yaw, "z": z, "duration": duration}
+    elif command_byte == 7:
+        return {"type": "getDistanceSensorData"}
+    elif command_byte == 8:
+        lidar = struct.unpack("<H", data[2:])[0]
+        return {"type": "getLidarDataPosition", "lidar": lidar}
+
 
 def serialize_result(result):
     resp = b""
@@ -103,7 +123,10 @@ def serialize_result(result):
         resp += struct.pack("<I", n_point_clouds)
         for x in lidar_data:
             resp += struct.pack("<f", x)
-
+    elif result["type"] == "lidar_data_position":
+        resp += struct.pack("<3f", *result["data"])
+    elif result["type"] == "distance_data":
+        resp += struct.pack("<f", result["data"])
     elif result["type"] == "executed_command":
         resp += struct.pack("<H", 1)
 

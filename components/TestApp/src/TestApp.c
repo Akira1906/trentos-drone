@@ -328,6 +328,18 @@ static void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lida
     getData(socket, (char *)request, len_request, buffer);
 }
 
+static void getLidarPosition(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
+    uint16_t request[2] = {8, lidar};
+    size_t len_request = sizeof(uint16_t) * 2;
+
+    getData(socket, (char *)request, len_request, buffer);
+}
+
+static void getDistance(OS_Socket_Handle_t socket, char * buffer){
+    uint16_t command = 7;
+    getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
+}
+
 static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
     uint16_t takeoff = 1;
     getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
@@ -338,10 +350,37 @@ static void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer){
     getData(socket, (char *)&hover, sizeof(uint16_t), buffer);
 }
 
+static void sendMoveByRollPitchYawZCommand(OS_Socket_Handle_t socket, char *buffer, float roll, float pitch, float yaw, float z, float duration){
+    float data[5] = {roll, pitch, yaw, z, duration};
+    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 5);
+    uint16_t command = 6;
+    memcpy(request, &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 5);
+    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 5, buffer);
+    free(request);
+}
+
+static void sendMoveByVelocityBodyFrameCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float vz, float duration){
+    float data[4] = {vx, vy, vz, duration};
+    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
+    uint16_t command = 4;
+    memcpy(request, &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
+    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
+    free(request);
+}
+
+
 static float * parseLidarPoints(char *buffer, int * number_of_points){
     memcpy(number_of_points, buffer, sizeof(int));
     float * points = malloc(sizeof(float) * (*number_of_points));
     memcpy(points, buffer + sizeof(int), sizeof(float *) * (*number_of_points));
+    return points;
+}
+
+static float * parseLidarPosition(char *buffer){
+    float * points = malloc(sizeof(float) * 3);
+    memcpy(points, buffer, sizeof(float *) * 3);
     return points;
 }
 
@@ -396,6 +435,13 @@ int run()
     Debug_LOG_INFO("Send request to host...");
     static char buffer[OS_DATAPORT_DEFAULT_SIZE];
 
+    getLidarPosition(hSocket, buffer, 0);
+    float * position = parseLidarPosition(buffer);
+    
+    for (int i = 0; i < 3; i ++){
+        Debug_LOG_INFO("position point %f\n", position[i]);
+    }
+
     getLidarData(hSocket, buffer, 0);
   
     int number_of_points = 0;
@@ -415,8 +461,22 @@ int run()
     sendHoverCommand(hSocket, buffer);
     Debug_LOG_INFO("Hover status %d\n", * (uint16_t*) buffer);
 
+    Debug_LOG_INFO("Sending sendMoveByRollPitchYawZCommand\n");
+    sendMoveByRollPitchYawZCommand(hSocket, buffer, 0, 0, 0, 10, 0.5);
+    Debug_LOG_INFO("sendMoveByRollPitchYawZCommand status %d\n", * (uint16_t*) buffer);
+
+    Debug_LOG_INFO("Sending getDistance\n");
+    getDistance(hSocket, buffer);
+    Debug_LOG_INFO("getDistance distance %f\n", * (float*) buffer);
+
+    Debug_LOG_INFO("Sending sendMoveByVelocityBodyFrameCommand\n");
+    sendMoveByVelocityBodyFrameCommand(hSocket, buffer, 1, 0, 1, 0.5);
+    Debug_LOG_INFO("sendMoveByVelocityBodyFrameCommand status %d\n", * (uint16_t*) buffer);
+
+
     OS_Socket_close(hSocket);
     free(points);
+    free(position);
 
 
     // ----------------------------------------------------------------------

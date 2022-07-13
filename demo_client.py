@@ -18,17 +18,24 @@ def generate_command(command_type):
         return struct.pack("<H4f", 4, 0,0,-5,0.5)
     elif command_type == "moveByRollPitchYawThrottleAsync":
         return struct.pack("<H5f", 5, 0,0, 40, 1, 0.5)
+    elif command_type == "getLidarDataPosition":
+        return struct.pack("<HH", 8, 0)
+    elif command_type == "getDistanceSensorData":
+        return struct.pack("<H", 7)
+    elif command_type == "moveByRollPitchYawZAsync":
+        return struct.pack("<H5f", 6, 0, 0, 0, 11, 0.5)
+    
 
-
-def parse_lidar_data(data):
-    q0, q1, q2, q3 = struct.unpack("!4f", data[:16])
-    print(q0, q1, q2, q3)
-    x, y, z = struct.unpack("!3f", data[16:16 + 12])
-    print(x, y, z)
 
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
+
+        command = generate_command("getDistanceSensorData")
+        s.sendall(command)
+        data = s.recv(1024)
+        print(struct.unpack("<f", data))
+        time.sleep(1)
 
         command = generate_command("takeoffAsync")
         s.sendall(command)
@@ -46,18 +53,18 @@ def main():
         time.sleep(1)
         
          
-        command = generate_command("moveByVelocityBodyFrameAsync")
+        command = generate_command("moveByRollPitchYawZAsync")
         print(len(command))
         s.sendall(command)
         data = s.recv(1024)
         time.sleep(1)
         
 
-        command = generate_command("moveByRollPitchYawThrottleAsync")
-        print(len(command))
-        s.sendall(command)
-        data = s.recv(1024)
-        time.sleep(1)
+        # command = generate_command("moveByRollPitchYawThrottleAsync")
+        # print(len(command))
+        # s.sendall(command)
+        # data = s.recv(1024)
+        # time.sleep(1)
         
     
 if __name__ == "__main__":
