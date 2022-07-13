@@ -338,23 +338,10 @@ static void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer){
     getData(socket, (char *)&hover, sizeof(uint16_t), buffer);
 }
 
-static float * parseLidarOrientation(char *buffer){
-    float * orientation = malloc(sizeof(float) * 4);
-    memcpy(orientation, buffer, sizeof(float) * 4);
-    return orientation;
-}
-
-static float * parseLidarPosition(char *buffer){
-    float * position = malloc(sizeof(float) * 3);
-    memcpy(position, buffer + (sizeof(float) * 4), sizeof(float) * 3); 
-    return position;
-}
-
 static float * parseLidarPoints(char *buffer, int * number_of_points){
-    size_t n = sizeof(float) * 7;
-    memcpy(number_of_points, buffer + n, sizeof(int));
+    memcpy(number_of_points, buffer, sizeof(int));
     float * points = malloc(sizeof(float) * (*number_of_points));
-    memcpy(points, buffer + sizeof(float) * 7 + sizeof(int), sizeof(float *) * (*number_of_points));
+    memcpy(points, buffer + sizeof(int), sizeof(float *) * (*number_of_points));
     return points;
 }
 
@@ -410,11 +397,7 @@ int run()
     static char buffer[OS_DATAPORT_DEFAULT_SIZE];
 
     getLidarData(hSocket, buffer, 0);
-    float * orientation = parseLidarOrientation(buffer);
-    float * position = parseLidarPosition(buffer);
-
-    Debug_LOG_INFO("Lidar orientation %f\n %f\n %f\n %f\n ", orientation[0], orientation[1], orientation[2], orientation[3]);
-    Debug_LOG_INFO("Lidar position %f\n %f\n %f\n", position[0], position[1], position[2]);
+  
     int number_of_points = 0;
     float * points = parseLidarPoints(buffer, &number_of_points);
     
@@ -433,8 +416,6 @@ int run()
     Debug_LOG_INFO("Hover status %d\n", * (uint16_t*) buffer);
 
     OS_Socket_close(hSocket);
-    free(position);
-    free(orientation);
     free(points);
 
 

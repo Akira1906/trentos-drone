@@ -1,6 +1,7 @@
 import socket
 import airsim
 import struct
+import numpy as np
 
 HOST = "0.0.0.0"
 PORT = 8888
@@ -18,10 +19,32 @@ class AirSimClient:
         self.client.armDisarm(True)
         print('Connected!\n')
 
+
+    def process_lidar_data(self, lidar_data):
+        data = []
+        orientation = lidar_data.pose.orientation
+        q0, q1, q2, q3 = orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val
+        rotation_matrix = np.array(([1-2*(q2*q2+q3*q3),2*(q1*q2-q3*q0),2*(q1*q3+q2*q0)],
+                                        [2*(q1*q2+q3*q0),1-2*(q1*q1+q3*q3),2*(q2*q3-q1*q0)],
+                                        [2*(q1*q3-q2*q0),2*(q2*q3+q1*q0),1-2*(q1*q1+q2*q2)]))
+
+        position = lidar_data.pose.position
+
+        for i in range(0, len(lidar_data.point_cloud), 3):
+            xyz = lidar_data.point_cloud[i:i+3]
+
+            corrected_x, corrected_y, corrected_z = np.matmul(rotation_matrix, np.asarray(xyz))
+            final_x = corrected_x + position.x_val
+            final_y = corrected_y + position.y_val
+            final_z = corrected_z + position.z_val
+            data += [final_x, final_y, final_z]
+
+        return data
+        
     def execute_command(self, command):
         if command["type"] == "getLidarData":
-            data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
-            print(data)
+            lidar_data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
+            data = self.process_lidar_data(lidar_data)
             return {"type": "lidar_data", "data": data}
         elif command["type"] == "takeoffAsync":
             self.client.takeoffAsync().join()
@@ -75,20 +98,12 @@ def serialize_result(result):
     resp = b""
     if result["type"] == "lidar_data":
         lidar_data = result["data"]
-        orientation = lidar_data.pose.orientation
-        q0, q1, q2, q3 = orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val
-        resp += struct.pack("<4f", q0, q1, q2, q3)
 
-        position = lidar_data.pose.position
-        x, y, z = position.x_val, position.y_val, position.z_val
-        resp += struct.pack("<3f", x, y, z)
-
-        n_point_clouds = len(lidar_data.point_cloud)
-
+        n_point_clouds = len(lidar_data)
         resp += struct.pack("<I", n_point_clouds)
-        
-        for x in lidar_data.point_cloud:
+        for x in lidar_data:
             resp += struct.pack("<f", x)
+
     elif result["type"] == "executed_command":
         resp += struct.pack("<H", 1)
 
@@ -118,7 +133,9 @@ def main():
                     continue
                 print(command)
                 result = airsim_client.execute_command(command)
+                print(result)
                 resp = serialize_result(result)
+                print(resp)
                 conn.sendall(resp)
 
 
