@@ -79,12 +79,6 @@ import time
 
 class LidarTest:
 
-    def test(self, vehicleName, distanceSensorName):
-        self.client.takeoffAsync()
-        self.client.moveByRollPitchYawZAsync(roll=0, pitch=0.125*np.pi, yaw=np.pi,z=-5, duration=5, vehicle_name=vehicleName)
-        distanceData = self.client.getDistanceSensorData(distanceSensorName, vehicleName)
-        print(distanceData)
-
     def __init__(self):
          #connect to the AirSim simulator
         self.client = airsim.MultirotorClient()
@@ -94,157 +88,29 @@ class LidarTest:
         self.client.armDisarm(True)
         print('Connected!\n')
 
+#---------------------------------------------------------------------------------------
+# DEBUGGING FUNCTIONS
+#---------------------------------------------------------------------------------------
+
+    def test(self, vehicleName, distanceSensorName):
+        self.client.takeoffAsync()
+        self.client.moveByRollPitchYawZAsync(roll=0, pitch=0.125*np.pi, yaw=np.pi,z=-5, duration=5, vehicle_name=vehicleName)
+        distanceData = self.client.getDistanceSensorData(distanceSensorName, vehicleName)
+        print(distanceData)
+
     def print_state(self):
         print("===============================================================")
         state = self.client.getMultirotorState()
         print("state: %s" % pprint.pformat(state))
         return state
+    
+    def debugShowPointPosition(self, coordinates):
+        coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], - 30)]
+        self.client.simPlotLineStrip(coordinatesVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
 
-    """ 
-        Evaluates the pointcloud detected with the horizontal lidar sensor.
-        Detects possible landing Targets.
-        Chooses the one with the closest proximity to the drone.
-        Args:
-            self
-            filename    (str)       : Name of thepointcloud file
-            lidarName   (str)       : Lidar name of the horizontasl lidar used
-            vehicleName (str)       : Name of the vehicle controlled
-
-        Returns:
-            landingTarget ([float, float, float]) : Rough position of the chosen landing platform
-    """ 
-    def evaluateLandingTarget(self, filename, lidarName, vehicleName):
-
-        #reads the lidar pointcloud file
-        print("evaluateLandingTarget()")
-        f = open(filename,'r')
-        rawLines = f.readlines()
-        f.close()
-
-        if(len(rawLines) < 2):
-            raise Exception("evaluateLandingTarget.Error: LidarData File empty/too short")
-
-        #Filters a pointCloudList for their lowest z value only and casts to float
-        #get lowestZ value which is in the end of the pointcloud file
-        lowestZ = rawLines[-1].split()[2]
-        lidarPoints = self.exactFilterPoints(rawLines, lowestZ)       
-        
-
-        #detect objects and their pointcloud points
-        maxdistance = 5 #maximum distance between two points so they belong to the same landingSpot
-        tempLastPoint = lidarPoints[0]
-        landingSpots = [[tempLastPoint]] #list of detected landingSpots that contains the lidarpoints which belong to a landingSpot
-        for point in lidarPoints[1:]:
-            #determine distance between two neighbouring points
-            x = point[0] - tempLastPoint[0]
-            y = point[1] - tempLastPoint[1]
-            tempLastPoint = point
-
-            distance = np.sqrt(pow(x,2) + pow(y,2))
-            distanceToOrigin = np.sqrt(pow(point[0],2) + pow(point[1],2))
-            print(distance, distanceToOrigin)
-            if(distance > maxdistance):
-                landingSpots.append([point])
-            else:
-                landingSpots[-1].append(point)
-        
-        print("Detected " + str(len(landingSpots)) + " possible Landing Spots")
-        print("choosing a landing spot...")
-
-        #determine the average landingPoint position of a landingSpot
-        landingPoints = len(landingSpots) * [[0.0, 0.0, 0.0]]
-        for i in range(len(landingSpots)):
-            averageX = 0
-            averageY = 0
-            for point in landingSpots[i]:
-                averageX += point[0]
-                averageY += point[1]
-            averageX /= len(landingSpots[i])
-            averageY /= len(landingSpots[i])
-            landingPoints[i] = [averageX, averageY, landingSpots[i][0][2]]
-        
-        #determine the distance of the landing spots to the drone
-        lidar_data = self.client.getLidarData(lidar_name=lidarName, vehicle_name=vehicleName)
-        position = lidar_data.pose.position
-        distances = []
-        for mPoint in landingPoints:
-            distances.append(
-                np.sqrt(
-                    pow(mPoint[0] - position.x_val, 2) + pow(mPoint[1] - position.y_val, 2)
-                )
-            )
-            
-        #choose the landingPoint with the lowest distance to the drone
-        landingTarget = landingPoints[distances.index(max(distances))]
-        objectsCoordinatesToSave = self.detectObjectsGroundLevel(rawLines)
-
-        return landingTarget, objectsCoordinatesToSave
-
-    """ 
-        Parses the lidar files extracted by the vertical lidars 
-        and detects the center of the landing spot close to the drone.
-        Args:
-            self
-            filename1   (str)   : Name of the first pointcloud file
-            filename2   (str)   : Name of the second pointcloud file
-            lidarNames  ([str]) : List of lidar names of the two vertical lidars used
-            vehicleName (str)   : Name of the vehicle controlled
-
-        Returns:
-            landingTarget ([float, float, float]) : Determined best landing position
-
-    """ 
-    def detectExactLandingPoint(self, filename1, filename2, lidarNames, vehicleName):
-        print("detectExactLandingPoint()")
-        #read in the data from the lidar pointcloud files
-        f = open(filename1, 'r')
-        rawLines1 = f.readlines()
-        f.close()
-        f = open(filename2, 'r')
-        rawLines2 = f.readlines()
-        f.close()
-
-        if(len(rawLines1) == 0 or len(rawLines2) == 0):
-            raise Exception("detectExactLandingPoint.Error: LidarData File empty/too short")
-
-        #filter for points on the approximate height of the landing spot and gets the Z position of it
-        highestPointcloud1, lowestZ1 = self.roughFilterHighestPoints(rawLines1, 0.1)
-        highestPointcloud2, lowestZ2 = self.roughFilterHighestPoints(rawLines2, 0.1)
-        lowestZ = min(lowestZ1, lowestZ2)
-
-        #if one of the lidars didn't detected another plattform roughly minimum 1 meter lower ignore it 
-        ignoreLidar = 0 # 0 - nothing ignored, 1 - lidar1 ignored, 2 - lidar2 ignored
-        if(abs(lowestZ1 - lowestZ2) > 1):
-            if(lowestZ == lowestZ1):
-                ignoreLidar = 2
-            else:
-                ignoreLidar = 1
-
-        #determine the possible landingSpots detected on the radar and choose the one closest to the drone
-        if(ignoreLidar == 2 or ignoreLidar == 0):
-            middlePoint1 = self.getClosestMiddlePoint(lidarNames[0], highestPointcloud1, vehicleName)
-            if(len(highestPointcloud1) == 0):
-                raise Exception("detectExactLandingPoint.Error: Filtered pointclouds empty")
-
-        if(ignoreLidar == 1 or ignoreLidar == 0):
-            middlePoint2 = self.getClosestMiddlePoint(lidarNames[1], highestPointcloud2, vehicleName) 
-            if(len(highestPointcloud2) == 0):
-                raise Exception("detectExactLandingPoint.Error: Filtered pointclouds empty")
-
-        #averages the two axis' middlepoints of the object to find a safe landing position in the center of the object
-        if(ignoreLidar == 1):
-            landingTarget = [middlePoint2[0], middlePoint2[1], lowestZ]
-
-        elif(ignoreLidar == 2):
-            landingTarget = [middlePoint1[0], middlePoint1[1], lowestZ]
-
-        else:
-            landingTarget = [
-                (middlePoint1[0] + middlePoint2[0])/2,
-                (middlePoint1[1] + middlePoint2[1])/2,
-                lowestZ]
-
-        return landingTarget
+#---------------------------------------------------------------------------------------
+# GENERAL DATA PARSING/PROCESSING
+#---------------------------------------------------------------------------------------
 
     """ 
         Takes a pointcloud which contains only similar z values.
@@ -255,15 +121,15 @@ class LidarTest:
         Args:
             self
             lidarName (str)             : Name of the lidar we got the pointcloud data from
-            highestPointcloud([[str]])  : List of Points as Strings
+            filteredPointcloud([[str]]) : Pre-filtered list of points as Strings
             vehicleName (str)           : Name of the vehicle controlled
 
         Returns:
-            closestMiddlePoint ([float, float, float]) : Coordinates of the middlepoint of an detected object closest to the drone
+            closestObjectMiddlePoint ([float, float, float]) : Coordinates of the middlepoint of an detected object closest to the drone
 
     """ 
-    def getClosestMiddlePoint(self, lidarName, highestPointcloud, vehicleName):
-        middlePoints = self.getObjectPositionsInPointcloud(highestPointcloud)
+    def getClosestObjectMiddlePoint(self, lidarName, filteredPointcloud, vehicleName):
+        middlePoints = self.getObjectPositionsInPointcloud(filteredPointcloud)
 
         #1. determine distance to the drone and therefore choose the closest landing point if there is more than 1
         if len(middlePoints) > 1:
@@ -278,11 +144,12 @@ class LidarTest:
                     )
                 )
             #2. choose the middlePoint with the lowest distance to the drone
-            closestMiddlePoint = middlePoints[distances.index(min(distances))]
+            closestObjectMiddlePoint = middlePoints[distances.index(min(distances))]
         else:
-            closestMiddlePoint = middlePoints[0]
+            closestObjectMiddlePoint = middlePoints[0]
         
-        return closestMiddlePoint
+        return closestObjectMiddlePoint
+
 
     """ 
         Takes a pointcloud which contains preferrably only one rotation of the lidar, so objects won't be detected twice.
@@ -296,7 +163,6 @@ class LidarTest:
             middlePoints    ([float, float, float]) : estimated middlepoints of the objects scanned by the lidar 
 
     """ 
-
     def getObjectPositionsInPointcloud(self, pointcloud):
         #1. detect if the points belong to the same object, if the distance between them exceeds the maxdistance
 
@@ -330,8 +196,9 @@ class LidarTest:
                 
         return middlePoints
 
+
     """ 
-        Filters a raw pointCloudList for their exact lowest z value only and casts to float.
+        Filters a raw pointCloudList for their an exact z value only and casts to float.
         Args:
             self
             pointcloudList ([[str]])    : List of Points that we want to filter on
@@ -351,6 +218,7 @@ class LidarTest:
                 filteredPoints.append([float(point[0]), float(point[1]), float(point[2])]) #get rid of the color data, only parse coordinates
 
         return filteredPoints
+
 
     """ 
         Filters a raw pointCloudList for their roughly lowest z value with a defined accuracy and casts to float
@@ -380,96 +248,10 @@ class LidarTest:
                 filteredPoints.append(point)
 
         return filteredPoints, lowestZ
+#---------------------------------------------------------------------------------------
+# LIDAR SCAN Functions
+#---------------------------------------------------------------------------------------    
 
-
-    """ 
-        Steers the drone to the landing position until the landing platform is detected below the
-        drone with the distance Sensor
-        Args:
-            self
-            vehicleName     (str)                   : Vehicle Name
-            lidarNames      ([str])                 : List of the lidar names
-            distanceName    (str)                   : Distance sensor name
-            landingPosition ([float, float, float]) : List of the 3 coordinates of the landing point
-
-    """ 
-    def flyToLandingPosition(self, vehicleName, lidarNames, distanceName, landingPosition):
-        #determines the position of the landing platform relative to the drone
-        currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
-        xDifference = landingPosition[0] - currPosition.x_val
-        yDifference = landingPosition[1] - currPosition.y_val
-        distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
-
-        #calculate the direction at which the drone has to fly to reach the landingPosition
-        yawAngle = - np.arccos(xDifference/distanceToDrone)
-
-        #fly in the direction of the landingPosition until the distance sensor detects the landing platform
-        flightPitch = 0.02 * np.pi
-        self.client.moveByRollPitchYawZAsync(
-                roll = 0, pitch = 0, yaw = yawAngle,
-                z = landingPosition[2]-3, duration = 1,
-                vehicle_name = vehicleName).join()
-
-        distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
-        while(distanceSensorData.distance > 6):
-            self.client.moveByRollPitchYawZAsync(
-                roll = 0, pitch = flightPitch, yaw = yawAngle,
-                z = landingPosition[2]-3, duration = 0.05,
-                vehicle_name = vehicleName)
-
-            distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
-            print(distanceSensorData.distance)
-            
-        self.client.moveByRollPitchYawZAsync(
-            roll = 0, pitch = -6 * flightPitch, yaw = yawAngle,
-            z = landingPosition[2]-3, duration = 3,
-            vehicle_name = vehicleName).join()
-
-    def land(self, vehicleName, lidarNames, distanceName, landingPosition):
-        #determines the position of the landing platform relative to the drone
-        currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
-        xDifference = landingPosition[0] - currPosition.x_val
-        yDifference = landingPosition[1] - currPosition.y_val
-        z = currPosition.z_val
-        distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
-
-        #calculate the direction at which the drone has to fly to reach the landingPosition
-        #yawAngle = - np.arccos(xDifference/distanceToDrone)
-
-        #fly in the direction of the landingPosition until the distance sensor detects the landing platform
-
-        distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
-        while(distanceSensorData.distance > 4.0 or distanceToDrone > 1.0):
-
-            self.client.moveByVelocityZAsync(xDifference, yDifference, z, 0.2, airsim.DrivetrainType.MaxDegreeOfFreedom, airsim.YawMode(False, 90)).join()
-            distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
-            print(distanceSensorData.distance)
-            #determine distance to landingPosition
-            currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
-            xDifference = landingPosition[0] - currPosition.x_val
-            yDifference = landingPosition[1] - currPosition.y_val
-            distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
-
-        self.client.moveByVelocityBodyFrameAsync(0,0,2.5,2).join()
-        print("landing success")
-        
-    """ 
-        Evaluates the pointcloud data received by the horizontal lidar sensor to determine where in the world objects are.
-        Objects are only detected, if they are physically connected to the ground, floating objects will not be detected.
-        Args:
-            self
-            pointcloudList    ([[String]])                  : raw Lidardata pointcloud as String
-        Returns:
-            objectsCoordinates  ([[float, float float]])    : coordinates of the rough coordinates of the objects detected on the ground level by lidar
-    """
-    def detectObjectsGroundLevel(self, pointcloudList):
-        #the highestZ value is found in the first rotation of the horizontal lidar, that means in the beginning of the file
-        highestZ = pointcloudList[0].split()[2]
-        lowestLidarPoints = self.exactFilterPoints(pointcloudList, highestZ)
-        
-        objectsCoordinates = self.getObjectPositionsInPointcloud(lowestLidarPoints)
-
-        return objectsCoordinates
 
     """ 
         Scans the environment using lidar sensors.
@@ -563,13 +345,271 @@ class LidarTest:
 
         except KeyboardInterrupt:
             print("Quitted with Keyboard Interrupt!\n")
-    
-    def debugShowPointPosition(self, coordinates):
-        coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], - 30)]
-        self.client.simPlotLineStrip(coordinatesVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
 
+
+#---------------------------------------------------------------------------------------
+# FLIGHT PROCEDURE CONTROL Functions
+#---------------------------------------------------------------------------------------  
+
+#Flight Sequence 0
+
+    """ 
+        Evaluates the pointcloud detected with the horizontal lidar sensor.
+        Detects possible landing Targets.
+        Chooses the one with the closest proximity to the drone.
+        Args:
+            self
+            filename    (str)       : Name of thepointcloud file
+            lidarName   (str)       : Lidar name of the horizontasl lidar used
+            vehicleName (str)       : Name of the vehicle controlled
+
+        Returns:
+            landingTarget ([float, float, float]) : Rough position of the chosen landing platform
+    """ 
+    def evaluateLandingTarget(self, filename, lidarName, vehicleName):
+
+        #reads the lidar pointcloud file
+        print("evaluateLandingTarget()")
+        f = open(filename,'r')
+        rawLines = f.readlines()
+        f.close()
+
+        if(len(rawLines) < 2):
+            raise Exception("evaluateLandingTarget.Error: LidarData File empty/too short")
+
+        #Filters a pointCloudList for their lowest z value only and casts to float
+        #get lowestZ value which is in the end of the pointcloud file
+        lowestZ = rawLines[-1].split()[2]
+        lidarPoints = self.exactFilterPoints(rawLines, lowestZ)       
+        
+
+        #detect objects and their pointcloud points
+        maxdistance = 5 #maximum distance between two points so they belong to the same landingSpot
+        tempLastPoint = lidarPoints[0]
+        landingSpots = [[tempLastPoint]] #list of detected landingSpots that contains the lidarpoints which belong to a landingSpot
+        for point in lidarPoints[1:]:
+            #determine distance between two neighbouring points
+            x = point[0] - tempLastPoint[0]
+            y = point[1] - tempLastPoint[1]
+            tempLastPoint = point
+
+            distance = np.sqrt(pow(x,2) + pow(y,2))
+            distanceToOrigin = np.sqrt(pow(point[0],2) + pow(point[1],2))
+            print(distance, distanceToOrigin)
+            if(distance > maxdistance):
+                landingSpots.append([point])
+            else:
+                landingSpots[-1].append(point)
+        
+        print("Detected " + str(len(landingSpots)) + " possible Landing Spots")
+        print("choosing a landing spot...")
+
+        #determine the average landingPoint position of a landingSpot
+        landingPoints = len(landingSpots) * [[0.0, 0.0, 0.0]]
+        for i in range(len(landingSpots)):
+            averageX = 0
+            averageY = 0
+            for point in landingSpots[i]:
+                averageX += point[0]
+                averageY += point[1]
+            averageX /= len(landingSpots[i])
+            averageY /= len(landingSpots[i])
+            landingPoints[i] = [averageX, averageY, landingSpots[i][0][2]]
+        
+        #determine the distance of the landing spots to the drone
+        lidar_data = self.client.getLidarData(lidar_name=lidarName, vehicle_name=vehicleName)
+        position = lidar_data.pose.position
+        distances = []
+        for mPoint in landingPoints:
+            distances.append(
+                np.sqrt(
+                    pow(mPoint[0] - position.x_val, 2) + pow(mPoint[1] - position.y_val, 2)
+                )
+            )
             
+        #choose the landingPoint with the lowest distance to the drone
+        landingTarget = landingPoints[distances.index(max(distances))]
+        objectsCoordinatesToSave = self.detectObjectsGroundLevel(rawLines)
 
+        return landingTarget, objectsCoordinatesToSave
+
+    """ 
+        Evaluates the pointcloud data received by the horizontal lidar sensor to determine where in the world objects are.
+        Objects are only detected, if they are physically connected to the ground, floating objects will not be detected.
+        Args:
+            self
+            pointcloudList    ([[String]])                  : raw Lidardata pointcloud as String
+        Returns:
+            objectsCoordinates  ([[float, float float]])    : coordinates of the rough coordinates of the objects detected on the ground level by lidar
+    """
+    def detectObjectsGroundLevel(self, pointcloudList):
+        #the highestZ value is found in the first rotation of the horizontal lidar, that means in the beginning of the file
+        highestZ = pointcloudList[0].split()[2]
+        lowestLidarPoints = self.exactFilterPoints(pointcloudList, highestZ)
+        
+        objectsCoordinates = self.getObjectPositionsInPointcloud(lowestLidarPoints)
+
+        return objectsCoordinates
+
+
+#-----------------
+#Flight Sequence 1
+
+    """ 
+        Steers the drone to the landing position until the landing platform is detected below the
+        drone with the distance Sensor
+        Args:
+            self
+            vehicleName     (str)                   : Vehicle Name
+            lidarNames      ([str])                 : List of the lidar names
+            distanceName    (str)                   : Distance sensor name
+            landingPosition ([float, float, float]) : List of the 3 coordinates of the landing point
+
+    """ 
+    def flyToLandingPosition(self, vehicleName, lidarNames, distanceName, landingPosition):
+        #determines the position of the landing platform relative to the drone
+        currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
+        xDifference = landingPosition[0] - currPosition.x_val
+        yDifference = landingPosition[1] - currPosition.y_val
+        distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
+
+        #calculate the direction at which the drone has to fly to reach the landingPosition
+        yawAngle = - np.arccos(xDifference/distanceToDrone)
+
+        #fly in the direction of the landingPosition until the distance sensor detects the landing platform
+        flightPitch = 0.02 * np.pi
+        self.client.moveByRollPitchYawZAsync(
+                roll = 0, pitch = 0, yaw = yawAngle,
+                z = landingPosition[2]-3, duration = 1,
+                vehicle_name = vehicleName).join()
+
+        distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
+        while(distanceSensorData.distance > 6):
+            self.client.moveByRollPitchYawZAsync(
+                roll = 0, pitch = flightPitch, yaw = yawAngle,
+                z = landingPosition[2]-3, duration = 0.05,
+                vehicle_name = vehicleName)
+
+            distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
+            print(distanceSensorData.distance)
+            
+        self.client.moveByRollPitchYawZAsync(
+            roll = 0, pitch = -6 * flightPitch, yaw = yawAngle,
+            z = landingPosition[2]-3, duration = 3,
+            vehicle_name = vehicleName).join()
+
+
+#-----------------
+#Flight Sequence 2
+
+    """ 
+        Parses the lidar files extracted by the vertical lidars 
+        and detects the center of the landing spot close to the drone.
+        Args:
+            self
+            filename1   (str)   : Name of the first pointcloud file
+            filename2   (str)   : Name of the second pointcloud file
+            lidarNames  ([str]) : List of lidar names of the two vertical lidars used
+            vehicleName (str)   : Name of the vehicle controlled
+
+        Returns:
+            landingTarget ([float, float, float]) : Determined best landing position
+
+    """ 
+    def detectExactLandingPoint(self, filename1, filename2, lidarNames, vehicleName):
+        print("detectExactLandingPoint()")
+        #read in the data from the lidar pointcloud files
+        f = open(filename1, 'r')
+        rawLines1 = f.readlines()
+        f.close()
+        f = open(filename2, 'r')
+        rawLines2 = f.readlines()
+        f.close()
+
+        if(len(rawLines1) == 0 or len(rawLines2) == 0):
+            raise Exception("detectExactLandingPoint.Error: LidarData File empty/too short")
+
+        #filter for points on the approximate height of the landing spot and gets the Z position of it
+        highestPointcloud1, lowestZ1 = self.roughFilterHighestPoints(rawLines1, 0.1)
+        highestPointcloud2, lowestZ2 = self.roughFilterHighestPoints(rawLines2, 0.1)
+        lowestZ = min(lowestZ1, lowestZ2)
+
+        #if one of the lidars didn't detected another plattform roughly minimum 1 meter lower ignore it 
+        ignoreLidar = 0 # 0 - nothing ignored, 1 - lidar1 ignored, 2 - lidar2 ignored
+        if(abs(lowestZ1 - lowestZ2) > 1):
+            if(lowestZ == lowestZ1):
+                ignoreLidar = 2
+            else:
+                ignoreLidar = 1
+
+        #determine the possible landingSpots detected on the radar and choose the one closest to the drone
+        if(ignoreLidar == 2 or ignoreLidar == 0):
+            middlePoint1 = self.getClosestObjectMiddlePoint(lidarNames[0], highestPointcloud1, vehicleName)
+            if(len(highestPointcloud1) == 0):
+                raise Exception("detectExactLandingPoint.Error: Filtered pointclouds empty")
+
+        if(ignoreLidar == 1 or ignoreLidar == 0):
+            middlePoint2 = self.getClosestObjectMiddlePoint(lidarNames[1], highestPointcloud2, vehicleName) 
+            if(len(highestPointcloud2) == 0):
+                raise Exception("detectExactLandingPoint.Error: Filtered pointclouds empty")
+
+        #averages the two axis' middlepoints of the object to find a safe landing position in the center of the object
+        if(ignoreLidar == 1):
+            landingTarget = [middlePoint2[0], middlePoint2[1], lowestZ]
+
+        elif(ignoreLidar == 2):
+            landingTarget = [middlePoint1[0], middlePoint1[1], lowestZ]
+
+        else:
+            landingTarget = [
+                (middlePoint1[0] + middlePoint2[0])/2,
+                (middlePoint1[1] + middlePoint2[1])/2,
+                lowestZ]
+
+        return landingTarget
+
+
+#-----------------
+#Flight Sequence 3
+
+    """ 
+        Parses the lidar files extracted by the vertical lidars 
+        and detects the center of the landing spot close to the drone.
+        Args:
+            self
+            vehicleName (str)   : Name of the vehicle controlled
+            lidarNames  ([str]) : List of lidar names of the two vertical lidars used
+            distanceName (str)  : Name of the distance sensor
+            landingPositoin ([float, float, float]) : Coordinates of the desired landing position
+    """ 
+    def land(self, vehicleName, lidarNames, distanceName, landingPosition):
+        #determines the position of the landing platform relative to the drone
+        currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
+        xDifference = landingPosition[0] - currPosition.x_val
+        yDifference = landingPosition[1] - currPosition.y_val
+        z = currPosition.z_val
+        distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
+
+        #calculate the direction at which the drone has to fly to reach the landingPosition
+        #yawAngle = - np.arccos(xDifference/distanceToDrone)
+
+        #fly in the direction of the landingPosition until the distance sensor detects the landing platform
+
+        distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
+        while(distanceSensorData.distance > 4.0 or distanceToDrone > 1.0):
+
+            self.client.moveByVelocityZAsync(xDifference, yDifference, z, 0.2, airsim.DrivetrainType.MaxDegreeOfFreedom, airsim.YawMode(False, 90)).join()
+            distanceSensorData = self.client.getDistanceSensorData(distanceName, vehicleName)
+            print(distanceSensorData.distance)
+            #determine distance to landingPosition
+            currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
+            xDifference = landingPosition[0] - currPosition.x_val
+            yDifference = landingPosition[1] - currPosition.y_val
+            distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
+
+        self.client.moveByVelocityBodyFrameAsync(0,0,2.5,2).join()
+        print("landing success")
+        
 
 # main
 if __name__ == "__main__":
@@ -596,7 +636,7 @@ if __name__ == "__main__":
     
     #-----------------------
     flightSequence = 1
-    print("Sequence 1: fly to highest position")
+    print("Sequence 1: fly to highest landing spot")
     print("Sequence 1: landingTarget: "+str(landingTarget))
     #lidarTest.client.moveToPositionAsync(landingTarget[0], landingTarget[1], landingTarget[2]-3, 10).join()
     lidarTest.flyToLandingPosition(vehicleName, lidarNames, distanceName, landingTarget)
