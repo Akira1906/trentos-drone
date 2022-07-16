@@ -24,6 +24,7 @@ def generate_command(command_type):
         return struct.pack("<H", 7)
     elif command_type == "moveByRollPitchYawZAsync":
         return struct.pack("<H5f", 6, 0, 0, 0, 11, 0.5)
+        #TODO getDistanceSensorData, moveByVelocityZAsync
     
 
 
@@ -65,6 +66,7 @@ def main():
         # s.sendall(command)
         # data = s.recv(1024)
         # time.sleep(1)
+        # TODO getDistanceSensorData, moveByVelocityZAsync
         
     
 if __name__ == "__main__":

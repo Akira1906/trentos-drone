@@ -75,6 +75,7 @@ class AirSimClient:
         elif command["type"] == "getDistanceSensorData":
             distance_data = self.client.getDistanceSensorData(DISTANCE, VEHICLE)
             return {"type": "distance_data", "data":  distance_data.distance}
+            # TODO getDistanceSensorData, moveByVelocityZAsync
 
 def parse_command(data):
     command_byte = struct.unpack("<H", data[:2])[0]
@@ -104,14 +105,18 @@ def parse_command(data):
         return {"type": "moveByRollPitchYawThrottleAsync",  \
                 "roll": roll, "pitch": pitch, "yaw": yaw, "throttle": throttle, "duration": duration}
     elif command_byte == 6:
+        #moveByRollPitchYawZAsync
         roll, pitch, yaw, z, duration = struct.unpack("<5f", data[2:])
         return {"type": "moveByRollPitchYawZAsync", \
                 "roll": roll, "pitch": pitch, "yaw": yaw, "z": z, "duration": duration}
     elif command_byte == 7:
+        #getDistanceSensorData
         return {"type": "getDistanceSensorData"}
     elif command_byte == 8:
+        #getLidarDataPosition
         lidar = struct.unpack("<H", data[2:])[0]
         return {"type": "getLidarDataPosition", "lidar": lidar}
+        # TODO getDistanceSensorData, moveByVelocityZAsync
 
 
 def serialize_result(result):

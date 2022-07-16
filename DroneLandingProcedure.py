@@ -125,7 +125,10 @@ class LidarTest:
             raise Exception("evaluateLandingTarget.Error: LidarData File empty/too short")
 
         #Filters a pointCloudList for their lowest z value only and casts to float
-        lidarPoints, _ = self.exactFilterHighestPoints(rawLines)
+        #get lowestZ value which is in the end of the pointcloud file
+        lowestZ = rawLines[-1].split()[2]
+        lidarPoints = self.exactFilterPoints(rawLines, lowestZ)       
+        
 
         #detect objects and their pointcloud points
         maxdistance = 5 #maximum distance between two points so they belong to the same landingSpot
@@ -173,8 +176,9 @@ class LidarTest:
             
         #choose the landingPoint with the lowest distance to the drone
         landingTarget = landingPoints[distances.index(max(distances))]
+        objectsCoordinatesToSave = self.detectObjectsGroundLevel(rawLines)
 
-        return landingTarget
+        return landingTarget, objectsCoordinatesToSave
 
     """ 
         Parses the lidar files extracted by the vertical lidars 
@@ -259,14 +263,50 @@ class LidarTest:
 
     """ 
     def getClosestMiddlePoint(self, lidarName, highestPointcloud, vehicleName):
+        middlePoints = self.getObjectPositionsInPointcloud(highestPointcloud)
+
+        #1. determine distance to the drone and therefore choose the closest landing point if there is more than 1
+        if len(middlePoints) > 1:
+            
+            lidar_data = self.client.getLidarData(lidar_name=lidarName, vehicle_name=vehicleName)
+            position = lidar_data.pose.position
+            distances = []
+            for mPoint in middlePoints:
+                distances.append(
+                    np.sqrt(
+                        pow(mPoint[0] - position.x_val, 2) + pow(mPoint[1] - position.y_val, 2)
+                    )
+                )
+            #2. choose the middlePoint with the lowest distance to the drone
+            closestMiddlePoint = middlePoints[distances.index(min(distances))]
+        else:
+            closestMiddlePoint = middlePoints[0]
+        
+        return closestMiddlePoint
+
+    """ 
+        Takes a pointcloud which contains preferrably only one rotation of the lidar, so objects won't be detected twice.
+        1. Determine the number of objects dislayed by the pointcloud and which points belong to them.
+        2. Determines the average point in space of an object detected earlier
+        Args:
+            self
+            pointcloud      ([[float, float, float]])       : List of a coordinate list
+
+        Returns:
+            middlePoints    ([float, float, float]) : estimated middlepoints of the objects scanned by the lidar 
+
+    """ 
+
+    def getObjectPositionsInPointcloud(self, pointcloud):
         #1. detect if the points belong to the same object, if the distance between them exceeds the maxdistance
 
-        maxdistance = 2 #maximum distance between two points so they belong to the same landingSpot
+        #TODO determine the correct value for the lidar settings
+        maxdistance = 6 #maximum distance between two points so they belong to the same landingSpot
 
-        tempLastPoint = highestPointcloud[0]
+        tempLastPoint = pointcloud[0]
         landingSpots = [[tempLastPoint]] #list of detected landingSpots that contains the pointclouds which belong to a landingSpot
 
-        for point in highestPointcloud[1:]:
+        for point in pointcloud[1:]:
             #determine distance between two neighbouring points
             x = point[0] - tempLastPoint[0]
             y = point[1] - tempLastPoint[1]
@@ -279,17 +319,6 @@ class LidarTest:
             else:
                 landingSpots[-1].append(point)#add new point to a landingspot          
 
-        
-        # #2. determine the average middlepoints of each possible detected landingSpot
-        # middlePoints = [] #list of middlepoints of objects detected by lidarsensorver1
-        # for pointcloud in landingSpots:
-        #     middlePoints.append([0,0])
-        #     for point in pointcloud:
-        #         middlePoints[-1][0] += point[0]
-        #         middlePoints[-1][1] += point[1]
-        #     middlePoints[-1][0] /= len(highestPointcloud)
-        #     middlePoints[-1][1] /= len(highestPointcloud)
-
         #2. determines the two points with the greatest distance between each other
         # (first and last point of a pointcloud belonging to an object) and averages them
 
@@ -297,51 +326,31 @@ class LidarTest:
         for pointcloud in landingSpots:
             middlePoints.append(
                 [(pointcloud[0][0] + pointcloud[-1][0])/2,
-                (pointcloud[0][1] + pointcloud[-1][1])/2])
-
-        #3. determine distance to the drone and therefore choose the closest landing point if there is more than 1
-        if len(landingSpots) > 1:
-            
-            lidar_data = self.client.getLidarData(lidar_name=lidarName, vehicle_name=vehicleName)
-            position = lidar_data.pose.position
-            distances = []
-            for mPoint in middlePoints:
-                distances.append(
-                    np.sqrt(
-                        pow(mPoint[0] - position.x_val, 2) + pow(mPoint[1] - position.y_val, 2)
-                    )
-                )
-            #4. choose the middlePoint with the lowest distance to the drone
-            closestMiddlePoint = middlePoints[distances.index(min(distances))]
-        else:
-            closestMiddlePoint = middlePoints[0]
-        
-        return closestMiddlePoint
+                (pointcloud[0][1] + pointcloud[-1][1])/2, pointcloud[0][2]])
+                
+        return middlePoints
 
     """ 
         Filters a raw pointCloudList for their exact lowest z value only and casts to float.
         Args:
             self
-            pointcloudList ([[str]]) : List of Points that we want to filter on
+            pointcloudList ([[str]])    : List of Points that we want to filter on
+            zFilter         (str)       : Z value on that we want to filter on, should be a float as a string
 
         Returns:
             pointcloudList ([[float, float, float]])    : Filtered list
-            lowestZ (float)                             : Lowest Z value detected
 
     """ 
-    def exactFilterHighestPoints(self, pointcloudList):
-        #get lowestZ value which is in the end of the pointcloud file
-        lowestZ = pointcloudList[-1].split()[2]
+    def exactFilterPoints(self, pointcloudList, zFilter):
         filteredPoints = []
 
-        #filter for lowestZ exactly
-        for point in reversed(pointcloudList):
+        #filter for zFilter exactly
+        for point in pointcloudList:
             point = point.split()
-            if(point[2] != lowestZ):
-                break
-            filteredPoints.append([float(point[0]), float(point[1]), float(point[2])]) #get rid of the color data, only parse coordinates
+            if(point[2] == zFilter):               
+                filteredPoints.append([float(point[0]), float(point[1]), float(point[2])]) #get rid of the color data, only parse coordinates
 
-        return filteredPoints, float(lowestZ)
+        return filteredPoints
 
     """ 
         Filters a raw pointCloudList for their roughly lowest z value with a defined accuracy and casts to float
@@ -445,6 +454,24 @@ class LidarTest:
         print("landing success")
         
     """ 
+        Evaluates the pointcloud data received by the horizontal lidar sensor to determine where in the world objects are.
+        Objects are only detected, if they are physically connected to the ground, floating objects will not be detected.
+        Args:
+            self
+            pointcloudList    ([[String]])                  : raw Lidardata pointcloud as String
+        Returns:
+            objectsCoordinates  ([[float, float float]])    : coordinates of the rough coordinates of the objects detected on the ground level by lidar
+    """
+    def detectObjectsGroundLevel(self, pointcloudList):
+        #the highestZ value is found in the first rotation of the horizontal lidar, that means in the beginning of the file
+        highestZ = pointcloudList[0].split()[2]
+        lowestLidarPoints = self.exactFilterPoints(pointcloudList, highestZ)
+        
+        objectsCoordinates = self.getObjectPositionsInPointcloud(lowestLidarPoints)
+
+        return objectsCoordinates
+
+    """ 
         Scans the environment using lidar sensors.
         Converts the lidar data into pointclouds and writes them to a file.
         Depending on the flightSequence the function exits with different criteria.
@@ -536,6 +563,11 @@ class LidarTest:
 
         except KeyboardInterrupt:
             print("Quitted with Keyboard Interrupt!\n")
+    
+    def debugShowPointPosition(self, coordinates):
+        coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], - 30)]
+        self.client.simPlotLineStrip(coordinatesVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
+
             
 
 
@@ -552,14 +584,15 @@ if __name__ == "__main__":
     flightSequence = 0 
     print("Sequence 0: detect highest point")
     lidarTest.executeScan('Drone1',lidarNames[0:1], flightSequence)
-    landingTarget = lidarTest.evaluateLandingTarget(
+    landingTarget, objectsCoordinatesToSave = lidarTest.evaluateLandingTarget(
         vehicleName+"_" + lidarNames[0] + "_pointcloud.asc",
          lidarNames[0],
           vehicleName)
     
-    landingTargetVector = [airsim.Vector3r(landingTarget[0], landingTarget[1], landingTarget[2]), airsim.Vector3r(landingTarget[0], landingTarget[1], -30)]
-    lidarTest.client.simPlotLineStrip(landingTargetVector, color_rgba=[1.0, 0.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
+    lidarTest.debugShowPointPosition(landingTarget)
 
+    for object in objectsCoordinatesToSave:
+        lidarTest.debugShowPointPosition(object)
     
     #-----------------------
     flightSequence = 1
@@ -580,8 +613,7 @@ if __name__ == "__main__":
           lidarNames[1:],
            vehicleName)
     
-    landingTargetVector = [airsim.Vector3r(landingTarget1[0], landingTarget1[1], landingTarget1[2]), airsim.Vector3r(landingTarget1[0], landingTarget1[1], - 30)]
-    lidarTest.client.simPlotLineStrip(landingTargetVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
+    lidarTest.debugShowPointPosition(landingTarget1)
 
     lidarTest.client.rotateByYawRateAsync(45, 1, vehicleName).join()
     time.sleep(1)
@@ -593,14 +625,11 @@ if __name__ == "__main__":
           lidarNames[1:],
            vehicleName)
 
-    landingTargetVector = [airsim.Vector3r(landingTarget2[0], landingTarget2[1], landingTarget2[2]), airsim.Vector3r(landingTarget2[0], landingTarget2[1], -30)]
-    lidarTest.client.simPlotLineStrip(landingTargetVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
-    
+    lidarTest.debugShowPointPosition(landingTarget2)
+
     landingTarget = [(landingTarget1[0]+landingTarget2[0])/2,(landingTarget1[1]+landingTarget2[1])/2, (landingTarget1[2] + landingTarget2[2])/2]
 
-    landingTargetVector = [airsim.Vector3r(landingTarget[0], landingTarget[1], landingTarget[2]), airsim.Vector3r(landingTarget[0], landingTarget[1], -30)]
-    lidarTest.client.simPlotLineStrip(landingTargetVector, color_rgba=[1.0, 0.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
-
+    lidarTest.debugShowPointPosition(landingTarget)
     
     #-----------------------
     flightSequence = 3

@@ -340,6 +340,8 @@ static void getDistance(OS_Socket_Handle_t socket, char * buffer){
     getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
 }
 
+//TODO getDistanceSensorData, moveByVelocityZAsync
+
 static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
     uint16_t takeoff = 1;
     getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
