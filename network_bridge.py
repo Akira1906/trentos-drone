@@ -75,7 +75,11 @@ class AirSimClient:
         elif command["type"] == "getDistanceSensorData":
             distance_data = self.client.getDistanceSensorData(DISTANCE, VEHICLE)
             return {"type": "distance_data", "data":  distance_data.distance}
-            # TODO getDistanceSensorData, moveByVelocityZAsync
+        elif command["type"] == "moveByVelocityZAsync":
+            self.client.moveByVelocityZAsync(command["vx"], command["vy"], command["z"],  command["duration"],\
+                                            airsim.DrivetrainType.MaxDegreeOfFreedom, airsim.YawMode(False, 90)).join()
+            return {"type": "executed_command"}
+            
 
 def parse_command(data):
     command_byte = struct.unpack("<H", data[:2])[0]
@@ -116,7 +120,9 @@ def parse_command(data):
         #getLidarDataPosition
         lidar = struct.unpack("<H", data[2:])[0]
         return {"type": "getLidarDataPosition", "lidar": lidar}
-        # TODO getDistanceSensorData, moveByVelocityZAsync
+    elif command_byte == 9:
+        vx, vy, z, duration = struct.unpack("<4f", data[2:])
+        return {"type": "moveByVelocityZAsync", "vx": vx, "vy": vy, "z": z, "duration": duration}
 
 
 def serialize_result(result):

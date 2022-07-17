@@ -340,7 +340,6 @@ static void getDistance(OS_Socket_Handle_t socket, char * buffer){
     getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
 }
 
-//TODO getDistanceSensorData, moveByVelocityZAsync
 
 static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
     uint16_t takeoff = 1;
@@ -372,6 +371,15 @@ static void sendMoveByVelocityBodyFrameCommand(OS_Socket_Handle_t socket, char *
     free(request);
 }
 
+static void sendMoveByVelocityZCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float z, float duration){
+    float data[4] = {vx, vy, z, duration};
+    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
+    uint16_t command = 9;
+    memcpy(request, &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
+    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
+    free(request);
+}
 
 static float * parseLidarPoints(char *buffer, int * number_of_points){
     memcpy(number_of_points, buffer, sizeof(int));
@@ -474,6 +482,10 @@ int run()
     Debug_LOG_INFO("Sending sendMoveByVelocityBodyFrameCommand\n");
     sendMoveByVelocityBodyFrameCommand(hSocket, buffer, 1, 0, 1, 0.5);
     Debug_LOG_INFO("sendMoveByVelocityBodyFrameCommand status %d\n", * (uint16_t*) buffer);
+
+    Debug_LOG_INFO("Sending sendMoveByVelocityZCommand\n");
+    sendMoveByVelocityZCommand(hSocket, buffer, 1, 0, 1, 1);
+    Debug_LOG_INFO("sendMoveByVelocityZCommand status %d\n", * (uint16_t*) buffer);
 
 
     OS_Socket_close(hSocket);
