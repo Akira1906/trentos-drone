@@ -225,6 +225,7 @@ class LidarTest:
         Args:
             self
             pointcloudList ([[str]]) : List of Points that we want to filter on
+            accuracy       (float)   : Accuracy of the filtering
 
         Returns:
             pointcloudList ([[float, float, float]])    : Filtered list
