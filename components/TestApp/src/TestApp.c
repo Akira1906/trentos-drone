@@ -10,7 +10,7 @@
 
 #include "lib_debug/Debug.h"
 #include <string.h>
-
+#include "utils.h"
 #include <camkes.h>
 
 //------------------------------------------------------------------------------
@@ -394,7 +394,6 @@ static float * parseLidarPosition(char *buffer){
     return points;
 }
 
-
 //------------------------------------------------------------------------------
 int run()
 {
@@ -489,9 +488,16 @@ int run()
 
 
     OS_Socket_close(hSocket);
+    Debug_LOG_INFO("PROCESS MIDDLE POINTS >>>> \n");
+    int n_middle_points = 0;
+    float * middle_points = getObjectPositionsInPointcloud(points, number_of_points, &n_middle_points);
+    float * closest_middle_point = getClosestObjectMiddlePoint(middle_points, n_middle_points, position);
+
+    Debug_LOG_INFO("Closest middle point %f %f %f\n", closest_middle_point[0], closest_middle_point[1], closest_middle_point[2]);
+    free(middle_points);
+    free(closest_middle_point);
     free(points);
     free(position);
-
 
     // ----------------------------------------------------------------------
     // Storage Test
