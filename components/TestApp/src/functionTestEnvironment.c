@@ -6,8 +6,8 @@
         Filters a 2-dimensional pointcloud array for their z value exactly. The array is filtered by overriding the old
         array with the filtered elements. The functions returns a pointer to one past the end of this now filtered array.
         Args:
-            float (*pointcloudBegin)[3]     : Pointer to the first element of the pointcloud array
-            float (*pointcloudEnd)[3]       : Pointer to one past the last pointcloud array element    
+            float *pointcloudBegin          : Pointer to the first element of the pointcloud array
+            float *pointcloudEnd            : Pointer to one past the last pointcloud array element    
             float zFilter                   : Z value on that we want to filter on
 
         Returns:
@@ -33,8 +33,8 @@ float* exactFilterPoints(float *pointcloudBegin, float *pointcloudEnd, float zFi
 /* 
         Filters a 2-dimensional array for their roughly lowest z value with a defined accuracy.
         Args:
-            float (*pointcloudBegin)[3]     : Pointer to the first element of the pointcloud array
-            float (*pointcloudEnd)[3]       : Pointer to one past the last pointcloud array element
+            float *pointcloudBegin          : Pointer to the first element of the pointcloud array
+            float *pointcloudEnd            : Pointer to one past the last pointcloud array element
             float accuracy                  : filter accuracy
 
         Returns:
