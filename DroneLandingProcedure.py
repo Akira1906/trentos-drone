@@ -462,11 +462,11 @@ class LidarTest:
         Args:
             self
             vehicleName     (str)                   : Vehicle Name
-            lidarNames      ([str])                 : List of the lidar names
+            lidarName       (str)                   : Any lidar name
             distanceName    (str)                   : Distance sensor name
             landingPosition ([float, float, float]) : List of the 3 coordinates of the landing point
 
-    """ 
+    """
     def flyToLandingPosition(self, vehicleName, lidarNames, distanceName, landingPosition):
         #determines the position of the landing platform relative to the drone
         currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
@@ -640,7 +640,7 @@ if __name__ == "__main__":
     print("Sequence 1: fly to highest landing spot")
     print("Sequence 1: landingTarget: "+str(landingTarget))
     #lidarTest.client.moveToPositionAsync(landingTarget[0], landingTarget[1], landingTarget[2]-3, 10).join()
-    lidarTest.flyToLandingPosition(vehicleName, lidarNames, distanceName, landingTarget)
+    lidarTest.flyToLandingPosition(vehicleName, lidarNames[0], distanceName, landingTarget)
     print("Sequence 1: reached landing destination")
     #time.sleep(5)
     

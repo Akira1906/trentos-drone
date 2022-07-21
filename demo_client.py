@@ -2,7 +2,7 @@ import socket
 import struct
 import time
 
-HOST = "0.0.0.0"
+HOST = "10.0.0.11"
 PORT = 8888
 
 def generate_command(command_type):

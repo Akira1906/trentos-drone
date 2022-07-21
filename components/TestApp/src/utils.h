@@ -3,5 +3,7 @@
 
 float * getObjectPositionsInPointcloud(float * points, int number_of_points, int * n_middle_points);
 float * getClosestObjectMiddlePoint(float * middle_points, int n_middle_points, float * lidar_position);
+float * roughlyFilterHighestPoints(float *pointcloudBegin, float *pointcloudEnd, float accuracy);
+float * exactFilterPoints(float  *pointcloudBegin, float *pointcloudEnd, float zFilter);
 
 #endif

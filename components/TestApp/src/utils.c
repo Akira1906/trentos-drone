@@ -24,6 +24,7 @@ float * get_middle_point(float *  start, float * end){
     return start;
 }
 
+
 /*
    Takes a pointcloud which contains preferrably only one rotation of the lidar, so objects won't be detected twice.
         1. Determine the number of objects dislayed by the pointcloud and which points belong to them.
@@ -38,7 +39,6 @@ float * get_middle_point(float *  start, float * end){
             middlePoints    ([float])   : estimated middlepoints of the objects scanned by the lidar 
 
 */
-
 float * getObjectPositionsInPointcloud(float * points, int number_of_points, int * n_middle_points){
     float start[3] = {points[0], points[1], points[2]};
     float end[3] = {points[0], points[1], points[2]};
@@ -97,7 +97,6 @@ float * getObjectPositionsInPointcloud(float * points, int number_of_points, int
             closest_middle_point ([float, float, float]) : Coordinates of the middlepoint of an detected object closest to the drone
 
 */
-
 float * getClosestObjectMiddlePoint(float * middle_points, int n_middle_points, float * lidar_position){
     float * closest_middle_point = malloc(sizeof(float) * 3);
     closest_middle_point[0] = middle_points[0];
@@ -121,4 +120,67 @@ float * getClosestObjectMiddlePoint(float * middle_points, int n_middle_points, 
         }
     }
     return closest_middle_point;
+}
+
+
+/* 
+        Filters a 2-dimensional pointcloud array for their z value exactly. The array is filtered by overriding the old
+        array with the filtered elements. The functions returns a pointer to one past the end of this now filtered array.
+        Args:
+            float (*pointcloudBegin)[3]     : Pointer to the first element of the pointcloud array
+            float (*pointcloudEnd)[3]       : Pointer to one past the last pointcloud array element    
+            float zFilter                   : Z value on that we want to filter on
+
+        Returns:
+            filteredPointcloudEnd           : Pointer to one past the last array element of the filtered array
+
+*/
+float* exactFilterPoints(float (*pointcloudBegin)[3], float (*pointcloudEnd)[3], float zFilter){
+    float (*pos)[3] = pointcloudBegin;
+    //Filter for zFilter z value
+    for(; pointcloudBegin != pointcloudEnd; ++pointcloudBegin){
+        if((*pointcloudBegin)[2] == zFilter){
+            (*pos)[0] = (*pointcloudBegin)[0];
+            (*pos)[1] = (*pointcloudBegin)[1];
+            (*pos)[2] = (*pointcloudBegin)[2];
+            pos ++;
+        }
+    }
+  
+    return (float*)pos; //points to one past the last element of the filtered array
+}
+
+
+/* 
+        Filters a 2-dimensional array for their roughly lowest z value with a defined accuracy.
+        Args:
+            float (*pointcloudBegin)[3]     : Pointer to the first element of the pointcloud array
+            float (*pointcloudEnd)[3]       : Pointer to one past the last pointcloud array element
+            float accuracy                  : filter accuracy
+
+        Returns:
+            filteredPointcloudEnd           : Pointer to one past the last array element of the filtered array
+
+*/ 
+float* roughlyFilterHighestPoints(float (*pointcloudBegin)[3], float (*pointcloudEnd)[3], float accuracy){
+    float (*pos)[3] = pointcloudBegin;
+    float lowestZ = 0;
+    //Determine lowest z value
+    for(; pos != pointcloudEnd; ++pos){
+        if((*pos)[2]<lowestZ){
+            lowestZ = (*pos)[2];
+        }
+    }
+    //Filter for lowestZ with accuracy
+    pos = pointcloudBegin;
+    for(; pointcloudBegin != pointcloudEnd; ++pointcloudBegin){
+        if((*pointcloudBegin)[2] <= lowestZ + accuracy){
+            (*pos)[0] = (*pointcloudBegin)[0];
+            (*pos)[1] = (*pointcloudBegin)[1];
+            (*pos)[2] = (*pointcloudBegin)[2];
+            pos ++;
+        }
+    }
+
+    return (float*)pos; //points to one past the last element of the filtered array
 }
