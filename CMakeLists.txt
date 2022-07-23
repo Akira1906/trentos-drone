@@ -45,6 +45,7 @@ DeclareCAmkESComponent(
     SOURCES
         components/TestApp/src/TestApp.c
         components/TestApp/src/utils.c
+        components/TestApp/src/communication.c
     C_FLAGS
         -Wall
         -Werror

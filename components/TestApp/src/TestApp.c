@@ -13,7 +13,7 @@
 #include "utils.h"
 #include <camkes.h>
 #include <math.h>
-
+#include "communication.h"
 
 //------------------------------------------------------------------------------
 // static OS_FileSystem_Config_t spiffsCfg_1 =
@@ -265,123 +265,6 @@ waitForConnectionEstablished(
     return ret;
 }
 
-static void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, char *  buffer){
-    size_t n;
-    OS_Error_t ret;
-    do
-    {
-        seL4_Yield();
-        ret = OS_Socket_write(socket, request, len_request, &n);
-    }
-    while (ret == OS_ERROR_TRY_AGAIN);
-
-    if (OS_SUCCESS != ret)
-    {
-        Debug_LOG_ERROR("OS_Socket_write() failed with error code %d", ret);
-    }
-
-    size_t actualLenRecv = 0;
-
-    do
-    {
-        ret = OS_Socket_read(
-                socket,
-                buffer,
-                OS_DATAPORT_DEFAULT_SIZE,
-                &actualLenRecv);
-
-        switch (ret)
-        {
-        case OS_SUCCESS:
-            Debug_LOG_INFO(
-                "OS_Socket_read() received %zu bytes of data",
-                actualLenRecv);
-            continue;
-
-        case OS_ERROR_TRY_AGAIN:
-            Debug_LOG_TRACE(
-                "OS_Socket_read() reported try again");
-            continue;
-        
-        case OS_ERROR_CONNECTION_CLOSED:
-            Debug_LOG_INFO(
-                "OS_Socket_read() reported connection closed");
-            break;
-        
-        case OS_ERROR_NETWORK_CONN_SHUTDOWN:
-            Debug_LOG_DEBUG(
-            "OS_Socket_read() reported connection closed");
-            break;
-        
-        default:
-            Debug_LOG_ERROR(
-                "OS_Socket_read() failed, error %d", ret);
-            break;
-        }
-    }
-    while (ret != OS_SUCCESS);
-    
-}
-
-static void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
-    uint16_t request[2] = {0, lidar};
-    size_t len_request = sizeof(uint16_t) * 2;
-
-    getData(socket, (char *)request, len_request, buffer);
-}
-
-static void getLidarPosition(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
-    uint16_t request[2] = {8, lidar};
-    size_t len_request = sizeof(uint16_t) * 2;
-
-    getData(socket, (char *)request, len_request, buffer);
-}
-
-static void getDistance(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t command = 7;
-    getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
-}
-
-
-static void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t takeoff = 1;
-    getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
-}
-
-static void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t hover = 2;
-    getData(socket, (char *)&hover, sizeof(uint16_t), buffer);
-}
-
-static void sendMoveByRollPitchYawZAsyncCommand(OS_Socket_Handle_t socket, char *buffer, float roll, float pitch, float yaw, float z, float duration){
-    float data[5] = {roll, pitch, yaw, z, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 5);
-    uint16_t command = 6;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 5);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 5, buffer);
-    free(request);
-}
-
-static void sendMoveByVelocityBodyFrameCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float vz, float duration){
-    float data[4] = {vx, vy, vz, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
-    uint16_t command = 4;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
-    free(request);
-}
-
-static void sendMoveByVelocityZCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float z, float duration){
-    float data[4] = {vx, vy, z, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
-    uint16_t command = 9;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
-    free(request);
-}
 
 static float * parseLidarPoints(char *buffer, int * number_of_points){
     memcpy(number_of_points, buffer, sizeof(int));
@@ -618,14 +501,14 @@ int run()
 
 
     OS_Socket_close(hSocket);
-    Debug_LOG_INFO("PROCESS MIDDLE POINTS >>>> \n");
-    int n_middle_points = 0;
-    float * middle_points = getObjectPositionsInPointcloud(points, number_of_points, &n_middle_points);
-    float * closest_middle_point = getClosestObjectMiddlePoint(middle_points, n_middle_points, position);
+    // Debug_LOG_INFO("PROCESS MIDDLE POINTS >>>> \n");
+    // int n_middle_points = 0;
+    // float * middle_points = getObjectPositionsInPointcloud(points, number_of_points, &n_middle_points);
+    // float * closest_middle_point = getClosestObjectMiddlePoint(middle_points, n_middle_points, position);
 
-    Debug_LOG_INFO("Closest middle point %f %f %f\n", closest_middle_point[0], closest_middle_point[1], closest_middle_point[2]);
-    free(middle_points);
-    free(closest_middle_point);
+    // Debug_LOG_INFO("Closest middle point %f %f %f\n", closest_middle_point[0], closest_middle_point[1], closest_middle_point[2]);
+    // free(middle_points);
+    // free(closest_middle_point);
     free(points);
     free(position);
 
