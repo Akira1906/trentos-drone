@@ -11,6 +11,7 @@
 #include "lib_debug/Debug.h"
 #include <string.h>
 #include "utils.h"
+#include "limits.h"
 #include <camkes.h>
 #include <math.h>
 #include "communication.h"
@@ -273,16 +274,124 @@ static float * parseLidarPoints(char *buffer, int * number_of_points){
     return points;
 }
 
-static float * parseLidarPosition(char *buffer){
+float * parseLidarPosition(char *buffer){
     float * points = malloc(sizeof(float) * 3);
     memcpy(points, buffer, sizeof(float *) * 3);
     return points;
 }
 
 
+
 //------------------------------------------------------------------------------
 //Flight Sequences
 //------------------------------------------------------------------------------
+
+
+float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * n_lidar_points){
+    int number_of_points = 0;
+    float * lidar_data[100];
+    int lidar_data_sizes[100];
+    int pos = 0;
+    do{
+        getLidarData(socket, buffer, 0);    
+        float * points = parseLidarPoints(buffer, &number_of_points);
+        lidar_data[pos] = points;
+        lidar_data_sizes[pos] = number_of_points;
+        pos += 1;
+        sendMoveByVelocityBodyFrameCommand(socket, buffer, 0, 0,-5, 0.5);
+
+    }while(number_of_points > 0);
+
+    int total_length = 0;
+    for (int i = 0; i < pos;  i++ ){
+        total_length += lidar_data_sizes[i];
+        Debug_LOG_INFO("point to data %d \n", lidar_data_sizes[i]);
+    }
+    Debug_LOG_INFO("total number of points %d \n", total_length / 3);
+    memcpy(n_lidar_points, &total_length, sizeof(int));
+    float * lidar_points = (float *)malloc(total_length * sizeof(float));
+    int cur = 0;
+    for (int i = 0; i < pos;  i++ ){
+        memcpy(lidar_points + cur, lidar_data[i], lidar_data_sizes[i] * sizeof(float));
+        cur += lidar_data_sizes[i];
+        free(lidar_data[i]);
+    }
+    
+    return lidar_points;
+    
+}
+
+
+float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * lidar_points, int n_lidar_points){
+    float lowestZ = lidar_points[n_lidar_points-1];
+    Debug_LOG_INFO("Lowest Z %f\n",  lowestZ);
+    int pos;
+    for (int i = 0; i <= n_lidar_points - 3; i += 3){
+        if (lidar_points[i + 2] == lowestZ){
+            pos = i;
+            break;
+        }
+    }
+    float landing_points[n_lidar_points - pos][3];
+
+    int max_distance = 5;
+
+    float last_point[2] = {(lidar_points + pos)[0], (lidar_points + pos)[1]};
+    float cur_sum[2] =  {(lidar_points + pos)[0], (lidar_points + pos)[1]};
+    int n = 1;
+    int landing_point_n = 0;
+
+    for (int i = pos + 3; i <= n_lidar_points - 3; i += 3){
+        float x = lidar_points[i];
+        float y = lidar_points[i+1];
+        float z = lidar_points[i+2];
+        if (sqrt(pow(x - last_point[0], 2) + pow(y - last_point[1], 2)) < max_distance){
+            cur_sum[0] += x;
+            cur_sum[1] += y;
+            n += 1;
+        }else{
+            landing_points[landing_point_n][0] = cur_sum[0] / n;
+            landing_points[landing_point_n][1] = cur_sum[1] / n;
+            landing_points[landing_point_n][2] = z;
+            landing_point_n += 1;
+            n = 1;
+            cur_sum[0] = x;
+            cur_sum[1] = y;
+        }
+
+        last_point[0] = x;
+        last_point[1] = y;
+    }
+    
+    landing_points[landing_point_n][0] = cur_sum[0] / n;
+    landing_points[landing_point_n][1] = cur_sum[1] / n;
+    landing_points[landing_point_n][2] = lowestZ;
+    landing_point_n += 1;
+
+    for (int i = 0; i <  landing_point_n; i ++ ){
+        Debug_LOG_INFO ("Detected landing point %f %f %f\n", landing_points[i][0], landing_points[i][1], landing_points[i][2]);
+    }
+
+    getLidarPosition(socket, buffer, 0);
+    float * lidar_position = parseLidarPosition(buffer);
+
+    int res = 0;
+    int max_dist = INT_MIN;
+    for (int i = 0; i <= landing_point_n - 3; i += 3){
+        int cur_dist = sqrt(pow(lidar_position[0] - landing_points[i][0], 2) + pow(lidar_position[1] - landing_points[i][1], 2));
+        if (cur_dist > max_dist){
+            max_dist = cur_dist;
+            res = i;
+        }
+    }
+
+    float * landing_point = malloc(sizeof(float) * 3);
+    memcpy(landing_point,     &(landing_points[res][0]), sizeof(float)); 
+    memcpy(landing_point + 1, &(landing_points[res][1]), sizeof(float));
+    memcpy(landing_point + 2, &(landing_points[res][2]), sizeof(float));
+
+    return landing_point;
+}
 
 /* 
         Steers the drone in the direction of the landing position until the landing platform is
@@ -294,7 +403,7 @@ static float * parseLidarPosition(char *buffer){
             float* landingPosition          : Pointer to the 3 float coordinates describing the rough landing position
 
 */ 
-static void flyToLandingPosition(OS_Socket_Handle_t socket, char *buf, uint16_t lidar, float* landingPosition){
+void flyToLandingPosition(OS_Socket_Handle_t socket, char *buf, uint16_t lidar, float* landingPosition){
     getLidarPosition(socket, buf, lidar);
     //positon should be in buffer now
     //determines the position of the landing platform relative to the drone
@@ -452,66 +561,22 @@ int run()
 
     Debug_LOG_INFO("Send request to host...");
     static char buffer[OS_DATAPORT_DEFAULT_SIZE];
-
-    getLidarPosition(hSocket, buffer, 0);
-    float * position = parseLidarPosition(buffer);
     
-    for (int i = 0; i < 3; i ++){
-        Debug_LOG_INFO("position point %f\n", position[i]);
+    int n_lidar_points = 0;
+    float * lidar_points = executeHorizontalScan(hSocket, buffer, &n_lidar_points);        
+    for (int  i = 0; i <= n_lidar_points - 3; i += 3 ){
+        Debug_LOG_INFO("Cur point %f %f %f\n", lidar_points[i], lidar_points[i + 1], lidar_points[i + 2]);
     }
-
-    getLidarData(hSocket, buffer, 0);
-  
-    int number_of_points = 0;
-    float * points = parseLidarPoints(buffer, &number_of_points);
     
-
-    for (int i = 0; i < number_of_points; i ++){
-        Debug_LOG_INFO("point %f\n", points[i]);
-    }
-
-    Debug_LOG_INFO("Sending takeoffCommand\n");
-    sendTakOffCommand(hSocket, buffer);
-    Debug_LOG_INFO("Takeoff status %d\n", * (uint16_t*) buffer);
-
-
-    Debug_LOG_INFO("Sending HoverCommand\n");
-    sendHoverCommand(hSocket, buffer);
-    Debug_LOG_INFO("Hover status %d\n", * (uint16_t*) buffer);
-
-    Debug_LOG_INFO("Sending sendMoveByRollPitchYawZAsyncCommand\n");
-    sendMoveByRollPitchYawZAsyncCommand(hSocket, buffer, 0, 0, 0, 10, 0.5);
-    Debug_LOG_INFO("sendMoveByRollPitchYawZAsyncCommand status %d\n", * (uint16_t*) buffer);
-
-    Debug_LOG_INFO("Sending getDistance\n");
-    getDistance(hSocket, buffer);
-    Debug_LOG_INFO("getDistance distance %f\n", * (float*) buffer);
-
-    Debug_LOG_INFO("Sending sendMoveByVelocityBodyFrameCommand\n");
-    sendMoveByVelocityBodyFrameCommand(hSocket, buffer, 1, 0, 1, 0.5);
-    Debug_LOG_INFO("sendMoveByVelocityBodyFrameCommand status %d\n", * (uint16_t*) buffer);
-
-    Debug_LOG_INFO("Sending sendMoveByVelocityZCommand\n");
-    sendMoveByVelocityZCommand(hSocket, buffer, 1, 0, -24, 5);
-    Debug_LOG_INFO("sendMoveByVelocityZCommand status %d\n", * (uint16_t*) buffer);
-
+    float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, n_lidar_points);
+    
+    Debug_LOG_INFO("Landing position %f %f %f\n", landingPosition[0], landingPosition[1], landingPosition[2]);
     Debug_LOG_INFO("Test flyToLandingPosition()\n");
-    float landingPosition[3] = {-68.81416794736842, 51.59855642105263, -24.090395};
+    // float landingPosition[3] = {-68.81416794736842, 51.59855642105263, -24.090395};
     flyToLandingPosition(hSocket, buffer, 0, landingPosition);
-
-
     OS_Socket_close(hSocket);
-    // Debug_LOG_INFO("PROCESS MIDDLE POINTS >>>> \n");
-    // int n_middle_points = 0;
-    // float * middle_points = getObjectPositionsInPointcloud(points, number_of_points, &n_middle_points);
-    // float * closest_middle_point = getClosestObjectMiddlePoint(middle_points, n_middle_points, position);
-
-    // Debug_LOG_INFO("Closest middle point %f %f %f\n", closest_middle_point[0], closest_middle_point[1], closest_middle_point[2]);
-    // free(middle_points);
-    // free(closest_middle_point);
-    free(points);
-    free(position);
-
+    free(lidar_points);
+    free(landingPosition);
     // ----------------------------------------------------------------------
     // Storage Test
     // ----------------------------------------------------------------------
