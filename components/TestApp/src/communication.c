@@ -40,9 +40,9 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
         switch (ret)
         {
         case OS_SUCCESS:
-            Debug_LOG_INFO(
-                "OS_Socket_read() received %zu bytes of data",
-                actualLenRecv);
+            // Debug_LOG_INFO(
+            //     "OS_Socket_read() received %zu bytes of data",
+            //     actualLenRecv);
             continue;
 
         case OS_ERROR_TRY_AGAIN:
@@ -68,7 +68,7 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     }
     while (ret != OS_SUCCESS);
 
-    Debug_LOG_INFO("Packet size %d\n", packet_size);
+    // Debug_LOG_INFO("Packet size %d\n", packet_size);
 
     size_t data_read = 0;
     char* position = buffer;
@@ -79,13 +79,13 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     {
         ret = OS_Socket_read(socket, position, packet_size - data_read, &read);
 
-        Debug_LOG_INFO("OS_Socket_read() - bytes read: %d, err: %d", read, ret);
+        // Debug_LOG_INFO("OS_Socket_read() - bytes read: %d, err: %d", read, ret);
 
         switch (ret)
         {
         case OS_SUCCESS:
             data_read += read;
-            Debug_LOG_INFO("Total data read  %d  left %d\n", data_read, packet_size - data_read); 
+            // Debug_LOG_INFO("Total data read  %d  left %d\n", data_read, packet_size - data_read); 
             position += data_read;
             break;
         case OS_ERROR_CONNECTION_CLOSED:
@@ -170,4 +170,11 @@ void sendMoveByVelocityZCommand(OS_Socket_Handle_t socket, char *buffer, float v
     memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
     getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
     free(request);
+}
+
+void sendRotateByYawRateCommand(OS_Socket_Handle_t socket, char *buffer, uint16_t yaw_rate, uint16_t duration){
+    uint16_t request[3] = {10, yaw_rate, duration};
+    size_t len_request = sizeof(uint16_t) * 3;
+
+    getData(socket, (char *)request, len_request, buffer);
 }
