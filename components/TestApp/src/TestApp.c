@@ -298,7 +298,7 @@ float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * n_l
         lidar_data[pos] = points;
         lidar_data_sizes[pos] = number_of_points;
         pos += 1;
-        sendMoveByVelocityBodyFrameCommand(socket, buffer, 0, 0,-5, 0.5);
+        sendMoveByVelocityBodyFrameCommand(socket, buffer, 0, 0, -5, 0.5);
 
     }while(number_of_points > 0);
     
@@ -337,11 +337,13 @@ float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * 
     int max_distance = 5;
 
     float last_point[2] = {(lidar_points + pos)[0], (lidar_points + pos)[1]};
-    float cur_sum[2] =  {(lidar_points + pos)[0], (lidar_points + pos)[1]};
+
+    float cur_sum[2] = {(lidar_points + pos)[0], (lidar_points + pos)[1]};
     int n = 1;
     int landing_point_n = 0;
 
     for (int i = pos + 3; i <= n_lidar_points - 3; i += 3){
+        Debug_LOG_INFO("Cur lidar_point %f %f \n", lidar_points[i], lidar_points[i+1]);
         float x = lidar_points[i];
         float y = lidar_points[i+1];
         float z = lidar_points[i+2];
@@ -379,6 +381,7 @@ float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * 
     int max_dist = INT_MIN;
     for (int i = 0; i <= landing_point_n; i++){
         int cur_dist = sqrt(pow(lidar_position[0] - landing_points[i][0], 2) + pow(lidar_position[1] - landing_points[i][1], 2));
+        Debug_LOG_INFO("Distance %d to landing point  %f %f %f\n", cur_dist, landing_points[i][0], landing_points[i][1], landing_points[i][2]);
         if (cur_dist > max_dist){
             max_dist = cur_dist;
             res = i;
@@ -455,19 +458,19 @@ void flyToLandingPosition(OS_Socket_Handle_t socket, char *buf, uint16_t lidar, 
             float* landing_target   : Pointer to the 3 float coordinates of the calculated landing target
 
 */
-/*
-static float * detectExactLandingPoint(char* buf1, int buf1_len, char* buf2, int buf2_len, uint16_t lidar1, uint16_t lidar2){
+
+float * detectExactLandingPoint(float * buf1, int buf1_len, float * buf2, int buf2_len, uint16_t lidar1, uint16_t lidar2){
     if(buf1_len == 0 || buf2_len == 0)
         Debug_LOG_ERROR("detectExactLandingPoint: pointcloud buffers too small");
 
-    float* pointcloud1 = (float*) buf1;
-    float* pointcloud2 = (float*) buf2;
+    float* pointcloud1 = buf1;
+    float* pointcloud2 = buf2;
 
-    float* pointcloud1_end = roughlyFilterHighestPoints(pointcloud1, pointcloud1 + buf1_len/4, 0.1);
-    float* pointcloud2_end = roughlyFilterHighestPoints(pointcloud2, pointcloud2 + buf2_len/4, 0.1);
+    // float* pointcloud1_end = roughlyFilterHighestPoints(pointcloud1, pointcloud1 + buf1_len/4, 0.1);
+    // float* pointcloud2_end = roughlyFilterHighestPoints(pointcloud2, pointcloud2 + buf2_len/4, 0.1);
 
-    int pointcloud1_len = (pointcloud1_end - pointcloud1)/3;
-    int pointcloud2_len = (pointcloud2_end - pointcloud2)/3;
+    // int pointcloud1_len = (pointcloud1_end - pointcloud1)/3;
+    // int pointcloud2_len = (pointcloud2_end - pointcloud2)/3;
 
     float lowest_z1 = pointcloud1[2];
     float lowest_z2 = pointcloud2[2];
@@ -510,7 +513,7 @@ static float * detectExactLandingPoint(char* buf1, int buf1_len, char* buf2, int
     landing_target[2] = (lowest_z1 + lowest_z2)/2;
     return landing_target;
 }
-*/
+
 
 //------------------------------------------------------------------------------
 int run()
@@ -573,8 +576,25 @@ int run()
     Debug_LOG_INFO("Landing position %f %f %f\n", landingPosition[0], landingPosition[1], landingPosition[2]);
     Debug_LOG_INFO("Test flyToLandingPosition()\n");
     Debug_LOG_INFO("Dataport size %ld\n", OS_DATAPORT_DEFAULT_SIZE);
-    // float landingPosition[3] = {-68.81416794736842, 51.59855642105263, -24.090395};
-    // flyToLandingPosition(hSocket, buffer, 0, landingPosition);
+    // float land[3] = {-68.81416794736842, 51.59855642105263, -24.090395};
+    flyToLandingPosition(hSocket, buffer, 0, landingPosition);
+    
+    // int vertical_lidar_data_1_size = 0;
+    // getLidarData(hSocket, buffer, 1);
+    // float * vertical_lidar_data_1 = parseLidarPoints(buffer, &vertical_lidar_data_1_size);
+    // Debug_LOG_INFO("Got 1 vertical data\n");
+    // int vertical_lidar_data_2_size = 0;
+    // getLidarData(hSocket, buffer, 2);
+    // float * vertical_lidar_data_2 = parseLidarPoints(buffer, &vertical_lidar_data_2_size);
+    // Debug_LOG_INFO("Got 2 vertical data\n");
+    
+    // float * landing_target = detectExactLandingPoint(vertical_lidar_data_1, vertical_lidar_data_1_size, vertical_lidar_data_2, 
+    //                         vertical_lidar_data_2_size, 1, 2);
+
+
+    // Debug_LOG_INFO("Landing Target %f %f %f\n", landing_target[0], landing_target[1], landing_target[2]);
+    // sendRotateByYawRateCommand(hSocket, buffer, 45, 1);
+    
     OS_Socket_close(hSocket);
     free(lidar_points);
     free(landingPosition);

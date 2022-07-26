@@ -79,7 +79,9 @@ class AirSimClient:
             self.client.moveByVelocityZAsync(command["vx"], command["vy"], command["z"],  command["duration"],\
                                             airsim.DrivetrainType.MaxDegreeOfFreedom, airsim.YawMode(False, 90)).join()
             return {"type": "executed_command"}
-            
+        elif command["type"] == "rotateByYawRateAsync":
+            self.client.rotateByYawRateAsync(command["yaw_rate"], command["duration"], VEHICLE).join()
+            return {"type": "executed_command"}
 
 def parse_command(data):
     command_byte = struct.unpack("<H", data[:2])[0]
@@ -123,7 +125,9 @@ def parse_command(data):
     elif command_byte == 9:
         vx, vy, z, duration = struct.unpack("<4f", data[2:])
         return {"type": "moveByVelocityZAsync", "vx": vx, "vy": vy, "z": z, "duration": duration}
-
+    elif command_byte == 10:
+        yaw_rate, duration = struct.unpack("<HH", data[2:])
+        return {"type": "rotateByYawRateAsync", "yaw_rate": yaw_rate, "duration": duration}
 
 def serialize_result(result):
     resp = b""
@@ -135,6 +139,7 @@ def serialize_result(result):
         resp += struct.pack("<H", total_size)
         resp += struct.pack("<I", n_point_clouds)
         for x in lidar_data:
+            print(x)
             resp += struct.pack("<f", x)
     elif result["type"] == "lidar_data_position":
         total_size = 12
