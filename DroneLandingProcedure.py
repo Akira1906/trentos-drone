@@ -105,7 +105,7 @@ class LidarTest:
         return state
     
     def debugShowPointPosition(self, coordinates):
-        coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], - 30)]
+        coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2] - 20)]
         self.client.simPlotLineStrip(coordinatesVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
 
 #---------------------------------------------------------------------------------------
@@ -167,10 +167,10 @@ class LidarTest:
         #1. detect if the points belong to the same object, if the distance between them exceeds the maxdistance
 
         #TODO determine the correct value for the lidar settings
-        maxdistance = 6 #maximum distance between two points so they belong to the same landingSpot
+        maxDistance = 12 #maximum distance between two points so they belong to the same object
 
         tempLastPoint = pointcloud[0]
-        landingSpots = [[tempLastPoint]] #list of detected landingSpots that contains the pointclouds which belong to a landingSpot
+        objects = [[tempLastPoint]] #list of detected objects that contains the pointclouds which belong to an object
 
         for point in pointcloud[1:]:
             #determine distance between two neighbouring points
@@ -180,16 +180,16 @@ class LidarTest:
 
             distance = np.sqrt(pow(x,2) + pow(y,2))
 
-            if(distance > maxdistance):
-                landingSpots.append([point])#add new landingspot to list
+            if(distance > maxDistance):
+                objects.append([point])#add new objects to list
             else:
-                landingSpots[-1].append(point)#add new point to a landingspot          
+                objects[-1].append(point)#add new point to an objects          
 
         #2. determines the two points with the greatest distance between each other
         # (first and last point of a pointcloud belonging to an object) and averages them
 
         middlePoints = []
-        for pointcloud in landingSpots:
+        for pointcloud in objects:
             middlePoints.append(
                 [(pointcloud[0][0] + pointcloud[-1][0])/2,
                 (pointcloud[0][1] + pointcloud[-1][1])/2, pointcloud[0][2]])
@@ -369,7 +369,7 @@ class LidarTest:
     """ 
     def evaluateLandingTarget(self, filename, lidarName, vehicleName):
 
-        #reads the lidar pointcloud file
+        #reads the lidar pointcloud file450
         print("evaluateLandingTarget()")
         f = open(filename,'r')
         rawLines = f.readlines()
@@ -385,7 +385,7 @@ class LidarTest:
         
 
         #detect objects and their pointcloud points
-        maxdistance = 5 #maximum distance between two points so they belong to the same landingSpot
+        maxdistance = 5 #maximum distance between two points so they belong to the same landingSpot TODO
         tempLastPoint = lidarPoints[0]
         landingSpots = [[tempLastPoint]] #list of detected landingSpots that contains the lidarpoints which belong to a landingSpot
         for point in lidarPoints[1:]:
@@ -430,9 +430,43 @@ class LidarTest:
             
         #choose the landingPoint with the lowest distance to the drone
         landingTarget = landingPoints[distances.index(max(distances))]
-        objectsCoordinatesToSave = self.detectObjectsGroundLevel(rawLines)
 
-        return landingTarget, objectsCoordinatesToSave
+        #NEW
+        maxDistance = 12 #TODO maximum distance between two points so they belong to the same object
+
+        objectsCoordinatesPerLevel = []
+
+
+
+        #determine object positions for every z-scan level
+        while (len(rawLines) > 0):
+            objectsCoordinates, levelLen = self.detectObjectsOnLevel(rawLines)
+            objectsCoordinatesPerLevel += [objectsCoordinates]
+            rawLines = rawLines[levelLen:]
+
+            #for point in objectsCoordinatesPerLevel[-1]:
+                #self.debugShowPointPosition(point)
+
+        objectData = objectsCoordinatesPerLevel[-1] # List of Lists containing the average X and Y coordinates and the minimum Z height of an object
+
+        for objectsCoordinates in reversed(objectsCoordinatesPerLevel[:-1]):
+            for object in objectsCoordinates:
+                found = False
+                for oldObject in objectData:
+                    x = object[0] - oldObject[0]
+                    y = object[1] - oldObject[1]
+                    #Performanceoptimierung mittels conditions möglich
+                    distance = np.sqrt(pow(x,2) + pow(y,2))
+                    if(distance < maxDistance):
+                        oldObject[0] = (oldObject[0] + object[0])/2
+                        oldObject[1] = (oldObject[1] + object[1])/2
+                        found = True
+                        break
+                if not found:
+                    objectData += [object]
+
+
+        return landingTarget, objectData
 
     """ 
         Evaluates the pointcloud data received by the horizontal lidar sensor to determine where in the world objects are.
@@ -443,14 +477,14 @@ class LidarTest:
         Returns:
             objectsCoordinates  ([[float, float float]])    : coordinates of the rough coordinates of the objects detected on the ground level by lidar
     """
-    def detectObjectsGroundLevel(self, pointcloudList):
+    def detectObjectsOnLevel(self, pointcloudList):
         #the highestZ value is found in the first rotation of the horizontal lidar, that means in the beginning of the file
         highestZ = pointcloudList[0].split()[2]
         lowestLidarPoints = self.exactFilterPoints(pointcloudList, highestZ)
         
         objectsCoordinates = self.getObjectPositionsInPointcloud(lowestLidarPoints)
 
-        return objectsCoordinates
+        return objectsCoordinates, len(lowestLidarPoints)
 
 
 #-----------------
@@ -625,14 +659,14 @@ if __name__ == "__main__":
     flightSequence = 0 
     print("Sequence 0: detect highest point")
     lidarTest.executeScan('Drone1',lidarNames[0:1], flightSequence)
-    landingTarget, objectsCoordinatesToSave = lidarTest.evaluateLandingTarget(
+    landingTarget, objectDataToSave = lidarTest.evaluateLandingTarget(
         vehicleName+"_" + lidarNames[0] + "_pointcloud.asc",
          lidarNames[0],
           vehicleName)
     
     lidarTest.debugShowPointPosition(landingTarget)
 
-    for object in objectsCoordinatesToSave:
+    for object in objectDataToSave:
         lidarTest.debugShowPointPosition(object)
     
     #-----------------------
