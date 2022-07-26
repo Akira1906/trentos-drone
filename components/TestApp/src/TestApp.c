@@ -374,10 +374,10 @@ float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * 
 
     getLidarPosition(socket, buffer, 0);
     float * lidar_position = parseLidarPosition(buffer);
-
+    Debug_LOG_INFO("Lidar position %f %f \n", lidar_position[0], lidar_position[0]);
     int res = 0;
     int max_dist = INT_MIN;
-    for (int i = 0; i <= landing_point_n - 3; i += 3){
+    for (int i = 0; i <= landing_point_n; i++){
         int cur_dist = sqrt(pow(lidar_position[0] - landing_points[i][0], 2) + pow(lidar_position[1] - landing_points[i][1], 2));
         if (cur_dist > max_dist){
             max_dist = cur_dist;
