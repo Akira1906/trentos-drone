@@ -129,16 +129,22 @@ def serialize_result(result):
     resp = b""
     if result["type"] == "lidar_data":
         lidar_data = result["data"]
-
+        
         n_point_clouds = len(lidar_data)
+        total_size = 4 + n_point_clouds * 4
+        resp += struct.pack("<H", total_size)
         resp += struct.pack("<I", n_point_clouds)
         for x in lidar_data:
             resp += struct.pack("<f", x)
     elif result["type"] == "lidar_data_position":
+        total_size = 12
+        resp += struct.pack("<H", total_size)
         resp += struct.pack("<3f", *result["data"])
     elif result["type"] == "distance_data":
+        resp += struct.pack("<H", 4)
         resp += struct.pack("<f", result["data"])
     elif result["type"] == "executed_command":
+        resp += struct.pack("<H", 2)
         resp += struct.pack("<H", 1)
 
     print(len(resp))
@@ -167,9 +173,8 @@ def main():
                     continue
                 print(command)
                 result = airsim_client.execute_command(command)
-                print(result)
+                # print(result)
                 resp = serialize_result(result)
-                print(resp)
                 conn.sendall(resp)
 
 

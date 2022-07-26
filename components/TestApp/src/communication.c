@@ -27,13 +27,14 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     }
 
     size_t actualLenRecv = 0;
-
+    // Read initial packet size
+    size_t packet_size = 0;
     do
     {
         ret = OS_Socket_read(
                 socket,
-                buffer,
-                OS_DATAPORT_DEFAULT_SIZE,
+                &packet_size,
+                2,
                 &actualLenRecv);
 
         switch (ret)
@@ -66,6 +67,46 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
         }
     }
     while (ret != OS_SUCCESS);
+
+    Debug_LOG_INFO("Packet size %d\n", packet_size);
+
+    size_t data_read = 0;
+    char* position = buffer;
+    
+    size_t read = 0;
+
+    while (packet_size - data_read > 0)
+    {
+        ret = OS_Socket_read(socket, position, packet_size - data_read, &read);
+
+        Debug_LOG_INFO("OS_Socket_read() - bytes read: %d, err: %d", read, ret);
+
+        switch (ret)
+        {
+        case OS_SUCCESS:
+            data_read += read;
+            Debug_LOG_INFO("Total data read  %d  left %d\n", data_read, packet_size - data_read); 
+            position += data_read;
+            break;
+        case OS_ERROR_CONNECTION_CLOSED:
+            Debug_LOG_WARNING("connection closed");
+            read = 0;
+            break;
+        case OS_ERROR_NETWORK_CONN_SHUTDOWN:
+            Debug_LOG_WARNING("connection shut down");
+            read = 0;
+            break;
+        case OS_ERROR_TRY_AGAIN:
+                Debug_LOG_WARNING(
+                    "OS_Socket_read() reported try again");
+                seL4_Yield();
+                continue;
+        default:
+            Debug_LOG_ERROR("OS_Socket_read() returned error code %d, bytes read %zu",
+                            ret, (size_t) (position - buffer));
+        }
+    }
+
     
 }
 
