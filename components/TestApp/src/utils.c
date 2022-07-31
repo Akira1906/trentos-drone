@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define MAX_DIST 6
+#define MAX_DIST 12
 #define MAX_DOUBLE 100000000000000
 
 double distance (float x, float y, float * end_point){
@@ -59,7 +59,7 @@ float * getObjectPositionsInPointcloud(float * points, int number_of_points, int
             float * middle_point = get_middle_point(start, end);
             middle_points[j][0] = middle_point[0];
             middle_points[j][1] = middle_point[1];
-            middle_points[j][2] = middle_point[3];
+            middle_points[j][2] = middle_point[2];
             j += 1;
             start[0] = x;
             start[1] = y;
@@ -74,7 +74,7 @@ float * getObjectPositionsInPointcloud(float * points, int number_of_points, int
     float * middle_point = get_middle_point(start, end);
     middle_points[j][0] = middle_point[0];
     middle_points[j][1] = middle_point[1];
-    middle_points[j][2] = middle_point[3];
+    middle_points[j][2] = middle_point[2];
     j += 1;
     memcpy(n_middle_points, &j, sizeof(int));
     float * res = malloc(j * sizeof(float) * 3);
@@ -203,6 +203,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
     int max_distance = MAX_DIST;//TODO set max dist
     float * objects_coordinates_per_level = malloc(sizeof(float) * lidar_points_len * 3);
     float * objects_coordinates_pos = objects_coordinates_per_level;
+    float * lidar_points_level_pos = lidar_points;
     float * lidar_points_pos = lidar_points;
 
     int objects_coordinates_len = 0;
@@ -224,11 +225,11 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
             lidar_points_len--;
         }
         //Debug_LOG_INFO("lidar_points_len after: %i", lidar_points_len);
-        //lidar_points_pos zeigt jetzt auf ein element nach den Punkten auf dieser Scanebene
-        //lidar_points zeigt auf das erste Element dieser Scanebene
+        //lidar_points_pos points to one past the last element of the current scan level
+        //lidar_points_level_pos points at the first element of this scan level
 
         int local_objects_coordinates_len = 0;
-        float * objects_coordinates = getObjectPositionsInPointcloud(lidar_points, (lidar_points_pos - lidar_points)/3, &local_objects_coordinates_len);
+        float * objects_coordinates = getObjectPositionsInPointcloud(lidar_points_level_pos, (lidar_points_pos - lidar_points_level_pos)/3, &local_objects_coordinates_len);
 
         //for(int i = 0; i< local_objects_coordinates_len; i++){
         //    Debug_LOG_INFO("getSurroundingObjectsData: Objects in Layer: %f %f %f", 
@@ -243,7 +244,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
         objects_coordinates_len += local_objects_coordinates_len;
         objects_coordinates_pos += local_objects_coordinates_len * 3;
         free(objects_coordinates);
-        lidar_points = lidar_points_pos;
+        lidar_points_level_pos = lidar_points_pos;
         
         //Debug_LOG_INFO("getSurroundingObjectsData: new layer");
         }

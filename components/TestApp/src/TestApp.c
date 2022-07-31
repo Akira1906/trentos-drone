@@ -459,7 +459,7 @@ void flyToLandingPosition(OS_Socket_Handle_t socket, char *buf, uint16_t lidar, 
             float* landing_target   : Pointer to the 3 float coordinates of the calculated landing target
 
 */
-
+/*
 float * detectExactLandingPoint(float* buf1, int buf1_len, float* buf2, int buf2_len, uint16_t lidar1, uint16_t lidar2){
     if(buf1_len == 0 || buf2_len == 0)
         Debug_LOG_ERROR("detectExactLandingPoint: pointcloud buffers too small");
@@ -487,7 +487,7 @@ float * detectExactLandingPoint(float* buf1, int buf1_len, float* buf2, int buf2
     float middle_point1[3];
     float middle_point2[3];
     float currPosition[3];
-    getLidarPosition(socket, buf1, lidar);
+    getLidarPosition(socket, buf1, lidar1);
     //positon should be in buffer now
     //determines the position of the landing platform relative to the drone
     memcpy(currPosition, buf1, sizeof(currPosition));//TODO should parsePosition be used here?
@@ -520,7 +520,7 @@ float * detectExactLandingPoint(float* buf1, int buf1_len, float* buf2, int buf2
     landing_target[2] = (lowest_z1 + lowest_z2)/2;
     return landing_target;
 }
-
+*/
 
 //------------------------------------------------------------------------------
 int run()
@@ -581,6 +581,7 @@ int run()
     int object_data_len = 0;
     Debug_LOG_INFO("getSurroundingObjectsData");  
     float * object_data = getSurroundingObjectsData(lidar_points, lidar_points_len, &object_data_len);
+    Debug_LOG_INFO("getSurroundingObjectsData done: %i", object_data_len); 
 
     for (int i = 0; i < object_data_len * 3; i += 3) {
         Debug_LOG_INFO("Object at : %f %f %f ", object_data[i], object_data[i+1], object_data[i+2]);
