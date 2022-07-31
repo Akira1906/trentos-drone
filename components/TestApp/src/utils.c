@@ -206,17 +206,36 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
     float * lidar_points_pos = lidar_points;
 
     int objects_coordinates_len = 0;
+    //Debug_LOG_INFO("getSurroundingObjectsData: variable Initialization");
+
+    //for(int i = 0; i< lidar_points_len; i++){
+    //        Debug_LOG_INFO("getSurroundingObjectsData: %f %f %f", 
+    //            lidar_points[3 * i],
+    //            lidar_points[3 * i + 1],
+    //            lidar_points[3 * i + 2]);
+    //    }
+    
 
     while(lidar_points_len > 0){
         float highestZ = lidar_points_pos[2];
-
-        for(;lidar_points_pos[2] == highestZ; lidar_points_pos += 3){
+        //Debug_LOG_INFO("highestZ: %f", highestZ);
+        //Debug_LOG_INFO("lidar_points_len before: %i", lidar_points_len);
+        for(;lidar_points_pos[2] == highestZ && lidar_points_len > 0; lidar_points_pos += 3){
             lidar_points_len--;
         }
+        //Debug_LOG_INFO("lidar_points_len after: %i", lidar_points_len);
         //lidar_points_pos zeigt jetzt auf ein element nach den Punkten auf dieser Scanebene
+        //lidar_points zeigt auf das erste Element dieser Scanebene
 
         int local_objects_coordinates_len = 0;
         float * objects_coordinates = getObjectPositionsInPointcloud(lidar_points, (lidar_points_pos - lidar_points)/3, &local_objects_coordinates_len);
+
+        //for(int i = 0; i< local_objects_coordinates_len; i++){
+        //    Debug_LOG_INFO("getSurroundingObjectsData: Objects in Layer: %f %f %f", 
+        //        objects_coordinates[3 * i],
+        //        objects_coordinates[3 * i + 1],
+        //        objects_coordinates[3 * i + 2]);
+        //}
 
         memcpy(objects_coordinates_pos, objects_coordinates, local_objects_coordinates_len * sizeof(float) * 3);
         //copy discovered coordinates
@@ -225,9 +244,12 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
         objects_coordinates_pos += local_objects_coordinates_len * 3;
         free(objects_coordinates);
         lidar_points = lidar_points_pos;
+        
+        //Debug_LOG_INFO("getSurroundingObjectsData: new layer");
         }
+        //Debug_LOG_INFO("getSurroundingObjectsData: Number of total objects detected in all scan layers: %i'", objects_coordinates_len);
         
-        
+
         //now we have the number of the objects and their coordinates
 
         objects_coordinates_pos = objects_coordinates_per_level + (3 * (objects_coordinates_len - 1)); // points to the last element of the array
@@ -235,7 +257,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
 
         float * object_data = (float*) calloc(objects_coordinates_len, sizeof(float) * 3);
         int object_data_len = 0;
-        float * end_of_objects_coordinates_per_level = objects_coordinates_per_level + 3 * objects_coordinates_len;// points to one element past the end
+        //float * end_of_objects_coordinates_per_level = objects_coordinates_per_level + 3 * objects_coordinates_len;// points to one element past the end
 
         while(objects_coordinates_level_pos >= objects_coordinates_per_level ){
 
@@ -243,8 +265,6 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
                 bool found = false;
 
                 for(int i =0; i<object_data_len; i++){
-                    //float x = objects_coordinates_pos[0] - ((object_data + 3 * i)[0]);
-                    //float y = objects_coordinates_pos[1] - ((object_data + 3 * i)[1]);
 
                     if((float)distance(objects_coordinates_pos[0],objects_coordinates_pos[1], (object_data + 3 * i)) < max_distance){
                         ((object_data + 3 * i)[0]) = (objects_coordinates_pos[0] + ((object_data + 3 * i)[0]))/2;
@@ -255,12 +275,13 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
                 }
 
                 if(!found){
+                    //Debug_LOG_INFO("getSurroundingObjectsData: new independent point discovered: %f %f %f", objects_coordinates_pos[0], objects_coordinates_pos[1], objects_coordinates_pos[2]);
                     memcpy((object_data + (3 * object_data_len)), objects_coordinates_pos, 3 * sizeof(float));
                     object_data_len ++;
                 }
             }
-
-        objects_coordinates_level_pos = objects_coordinates_pos;
+            //Debug_LOG_INFO("getSurroundingObjectsData: total objects for this layer: %i\n", object_data_len);
+            objects_coordinates_level_pos = objects_coordinates_pos;
         }
 
         //now object_data should contain all the position and heights of
