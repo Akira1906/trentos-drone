@@ -587,13 +587,13 @@ int run()
         Debug_LOG_INFO("Object at : %f %f %f ", object_data[i], object_data[i+1], object_data[i+2]);
     }
     
-    float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, n_lidar_points);
+    //float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, n_lidar_points);
     
-    Debug_LOG_INFO("Landing position %f %f %f\n", landingPosition[0], landingPosition[1], landingPosition[2]);
-    Debug_LOG_INFO("Test flyToLandingPosition()\n");
-    Debug_LOG_INFO("Dataport size %ld\n", OS_DATAPORT_DEFAULT_SIZE);
+    //Debug_LOG_INFO("Landing position %f %f %f\n", landingPosition[0], landingPosition[1], landingPosition[2]);
+    //Debug_LOG_INFO("Test flyToLandingPosition()\n");
+    //Debug_LOG_INFO("Dataport size %ld\n", OS_DATAPORT_DEFAULT_SIZE);
     // float land[3] = {-68.81416794736842, 51.59855642105263, -24.090395};
-    flyToLandingPosition(hSocket, buffer, 0, landingPosition);
+    //flyToLandingPosition(hSocket, buffer, 0, landingPosition);
     
     // int vertical_lidar_data_1_size = 0;
     // getLidarData(hSocket, buffer, 1);
@@ -613,7 +613,7 @@ int run()
     
     OS_Socket_close(hSocket);
     free(lidar_points);
-    free(landingPosition);
+    //free(landingPosition);
     // ----------------------------------------------------------------------
     // Storage Test
     // ----------------------------------------------------------------------
