@@ -396,68 +396,6 @@ float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * 
     return landing_point;
 }
 
-float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len) {
-    int max_distance = 12;
-    float * objects_coordinates_per_level = malloc(sizeof(float) * lidar_points_len * 3);
-    float * objects_coordinates_pos = objects_coordinates_per_level;
-    float * lidar_points_pos = lidar_points;
-
-
-    while(lidar_points_len > 0){
-        int lowest_lidar_points_len;
-        float highestZ = lidar_points[0][2];
-
-        for(;lidar_points_pos[2] == highestZ; lidar_points_pos += 3){
-            lidar_points_len--;
-        }
-        //lidar_points_pos zeigt jetzt auf ein element nach den Punkten auf dieser Scanebene
-
-        int objects_coordinates_len;
-        float * objects_coordinates = getObjectPositionsInPointcloud(lidar_points, (lidar_points_pos - lidar_points)/3, &objects_coordinates_len);
-        memcpy(objects_coordinates_pos, objects_coordinates, objects_coordinates_len * sizeof(float) * 3);
-        free(objects_coordinates);
-        
-        //now we have the number of the objects and their coordinates
-
-        objects_coordinates_pos += (3 * (objects_coordinates_len - 1)); // points to the last element of the array
-        float * objects_coordinates_level_pos = objects_coordinates_pos;
-
-        float * object_data = (float*) calloc(objects_coordinates_len, sizeof(float) * 3);
-        int object_data_len = 0;
-
-        while(objects_coordinates_level_pos < objects_coordinates_per_level + 3 * objects_coordinates_len){
-            for(;objects_coordinates_pos >= objects_coordinates_per_level && objects_coordinates_pos[2] == objects_coordinates_level_pos[2]; objects_coordinates_pos -= 3){
-                bool found = FALSE;
-
-                for(int i =0; i<object_data_len; i++){
-                    float x = objects_coordinates_pos[0] - ((object_data + 3 * i)[0]);
-                    float y = objects_coordinates_pos[1] - ((object_data + 3 * i)[1]);
-
-                    if((float)distance(x,y) < max_distance){
-                        ((object_data + 3 * i)[0]) = (objects_coordinates_pos[0] + ((object_data + 3 * i)[0]))/2;
-                        ((object_data + 3 * i)[1]) = (objects_coordinates_pos[1] + ((object_data + 3 * i)[1]))/2;
-                        found = TRUE;
-                        break;
-                    }
-                }
-
-                if(!found){
-                    memcpy((object_data + (3 * object_data_len)), objects_coordinates_pos);
-                    object_data_len ++;
-                }
-            }
-
-        objects_coordinates_level_pos = objects_coordinates_pos;
-        }
-
-        //now object_data should contain all the position and heights of
-
-    }
-
-    //object_coordinates_per_level now contains all the calculated object positons separated by scanning level
-    
-}
-
 
 /* 
         Steers the drone in the direction of the landing position until the landing platform is
@@ -639,6 +577,14 @@ int run()
     // for (int  i = 0; i <= n_lidar_points - 3; i += 3 ){
     //     Debug_LOG_INFO("Cur point %f %f %f\n", lidar_points[i], lidar_points[i + 1], lidar_points[i + 2]);
     // }
+    int lidar_points_len = n_lidar_points/3;
+    int object_data_len = 0;
+    Debug_LOG_INFO("getSurroundingObjectsData");  
+    float * object_data = getSurroundingObjectsData(lidar_points, lidar_points_len, &object_data_len);
+
+    for (int i = 0; i < object_data_len * 3; i += 3) {
+        Debug_LOG_INFO("Object at : %f %f %f ", object_data[i], object_data[i+1], object_data[i+2]);
+    }
     
     float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, n_lidar_points);
     
