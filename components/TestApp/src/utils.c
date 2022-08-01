@@ -151,39 +151,37 @@ float* exactFilterPoints(float *pointcloudBegin, float *pointcloudEnd, float zFi
     return (float*)pos; //points to one past the last element of the filtered array
 }
 
+/*
+*/
+float getLowestZ(float * points, int length){
+    float res = 0;
+    for (int i = 0; i <= length - 3; i += 3){
+        if (res > points[i + 2]){
+            res = points[i + 2];
+        }
+    }
+    
+    return res;
+}
 
 /* 
         Filters a 2-dimensional array for their roughly lowest z value with a defined accuracy.
-        Args:
-            float *pointcloudBegin          : Pointer to the first element of the pointcloud array
-            float *pointcloudEnd            : Pointer to one past the last pointcloud array element
-            float accuracy                  : filter accuracy
-
-        Returns:
-            filteredPointcloudEnd           : Pointer to one past the last array element of the filtered array
 
 */ 
-float* roughlyFilterHighestPoints(float *pointcloudBegin, float *pointcloudEnd, float accuracy){
-    float *pos = pointcloudBegin;
-    float lowestZ = 0;
-    //Determine lowest z value
-    for(; pos != pointcloudEnd; pos += 3){
-        if(pos[2]<lowestZ){
-            lowestZ = pos[2];
-        }
-    }
-    //Filter for lowestZ with accuracy
-    pos = pointcloudBegin;
-    for(; pointcloudBegin != pointcloudEnd; pointcloudBegin += 3){
-        if(pointcloudBegin[2] <= lowestZ + accuracy){
-            pos[0] = pointcloudBegin[0];
-            pos[1] = pointcloudBegin[1];
-            pos[2] = pointcloudBegin[2];
-            pos += 3;
+int roughlyFilterHighestPoints(float * points, int length, float accuracy){
+    float lowestZ = getLowestZ(points, length);
+
+    int start_of_low_Z = 0;
+    for (int i = 0; i <= length - 3; i += 3){
+        float cur_z = points[i + 2];
+        if (cur_z <= lowestZ + accuracy){
+            return start_of_low_Z;
+        }else{
+            start_of_low_Z += 3;
         }
     }
 
-    return (float*)pos; //points to one past the last element of the filtered array
+    return start_of_low_Z;
 }
 
 
