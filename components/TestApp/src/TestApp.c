@@ -17,14 +17,13 @@
 #include "communication.h"
 
 //------------------------------------------------------------------------------
-// static OS_FileSystem_Config_t spiffsCfg_1 =
-// {
-//     .type = OS_FileSystem_Type_SPIFFS,
-//     .size = OS_FileSystem_USE_STORAGE_MAX,
-//     .storage = IF_OS_STORAGE_ASSIGN(
-//         storage_rpc_1,
-//         storage_dp_1),
-// };
+ static OS_FileSystem_Config_t spiffsCfg_1 =
+ {
+    .type = OS_FileSystem_Type_SPIFFS,
+     .size = OS_FileSystem_USE_STORAGE_MAX,
+     .storage = IF_OS_STORAGE_ASSIGN(
+        storage_rpc_1,         storage_dp_1),
+ };
 
 // static OS_FileSystem_Config_t spiffsCfg_2 =
 // {
@@ -38,95 +37,101 @@
 // static char fileData[250];
 
 //------------------------------------------------------------------------------
-// static void
-// test_OS_FileSystem(OS_FileSystem_Config_t* cfg)
-// {
-//     OS_Error_t ret;
-//     OS_FileSystem_Handle_t hFs;
+ static void writeObjectDataToFile(OS_FileSystem_Config_t* cfg, float * object_data, int object_data_arr_len)
+ {
+    OS_Error_t ret;
+    OS_FileSystem_Handle_t hFs;
 
-//     static const char* fileName = "testfile.txt";
-//     static const off_t fileSize = sizeof(fileData);
-//     static OS_FileSystemFile_Handle_t hFile;
+    static const char* fileName = "object_data.txt";
+    const off_t fileSize = sizeof(float) * object_data_arr_len;
+    static OS_FileSystemFile_Handle_t hFile;
 
-//     // Init file system
-//     if ((ret = OS_FileSystem_init(&hFs, cfg)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystem_init() failed, code %d", ret);
-//     }
+    // Init file system
+    if ((ret = OS_FileSystem_init(&hFs, cfg)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystem_init() failed, code %d", ret);
+    }
 
-//     // Format file system
-//     if ((ret = OS_FileSystem_format(hFs)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystem_format() failed, code %d", ret);
-//     }
+    // Format file system
+    if ((ret = OS_FileSystem_format(hFs)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystem_format() failed, code %d", ret);
+    }
 
-//     // Mount file system
-//     if ((ret = OS_FileSystem_mount(hFs)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystem_mount() failed, code %d", ret);
-//     }
+    // Mount file system
+    if ((ret = OS_FileSystem_mount(hFs)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystem_mount() failed, code %d", ret);
+    }
 
-//     // Open file
-//     if((ret = OS_FileSystemFile_open(hFs, &hFile, fileName,
-//                                 OS_FileSystem_OpenMode_RDWR,
-//                                 OS_FileSystem_OpenFlags_CREATE)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystemFile_open() failed, code %d", ret);
-//     }
+    // Open file
+    if((ret = OS_FileSystemFile_open(hFs, &hFile, fileName,
+                                OS_FileSystem_OpenMode_RDWR,
+                                OS_FileSystem_OpenFlags_CREATE)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystemFile_open() failed, code %d", ret);
+    }
 
-//     // Write to the file
-//     off_t to_write, written;
-//     to_write = fileSize;
-//     written = 0;
+    // Write to the file
+    off_t to_write, written;
+    to_write = fileSize;
+    written = 0;
 
-//     while (to_write > 0)
-//     {
-//         if((ret = OS_FileSystemFile_write(hFs, hFile, written, sizeof(fileData), fileData)) != OS_SUCCESS)
-//         {
-//             Debug_LOG_ERROR("OS_FileSystemFile_write() failed, code %d", ret);
-//         }
+    Debug_LOG_INFO("Write object_data to Filesystem");
 
-//         written  += sizeof(fileData);
-//         to_write -= sizeof(fileData);
-//     }
+    while (to_write > 0)
+    {
+        if((ret = OS_FileSystemFile_write(hFs, hFile, written, sizeof(float) * object_data_arr_len, object_data)) != OS_SUCCESS)
+        {
+            Debug_LOG_ERROR("OS_FileSystemFile_write() failed, code %d", ret);
+        }
 
-//     // Read from the file
-//     uint8_t buf[sizeof(fileData)];
-//     off_t to_read, read;
-//     to_read = fileSize;
-//     read = 0;
+        written  += sizeof(float) * object_data_arr_len;
+        to_write -= sizeof(float) * object_data_arr_len;
+    }
 
-//     while (to_read > 0)
-//     {
-//         if((ret = OS_FileSystemFile_read(hFs, hFile, read, sizeof(buf), buf)) != OS_SUCCESS)
-//         {
-//             Debug_LOG_ERROR("OS_FileSystemFile_read() failed, code %d", ret);
-//         }
+    // Read from the file
+    float buf[object_data_arr_len];
+    off_t to_read, read;
+    to_read = fileSize;
+    read = 0;
 
-//         if(memcmp(fileData, buf, sizeof(buf)))
-//             Debug_LOG_ERROR("File content read does not equal file content to be written.");
+    while (to_read > 0)
+    {
+        if((ret = OS_FileSystemFile_read(hFs, hFile, read, sizeof(buf), buf)) != OS_SUCCESS)
+        {
+            Debug_LOG_ERROR("OS_FileSystemFile_read() failed, code %d", ret);
+        }
 
-//         read    += sizeof(buf);
-//         to_read -= sizeof(buf);
-//     }
+        if(memcmp(object_data, buf, sizeof(buf)))
+            Debug_LOG_ERROR("File content read does not equal file content to be written.");
 
-//     // Close file
-//     if((ret = OS_FileSystemFile_close(hFs, hFile)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystemFile_close() failed, code %d", ret);
-//     }
+        read    += sizeof(buf);
+        to_read -= sizeof(buf);
+    }
+    Debug_LOG_INFO("Read object_data from Filesystem");
+    Debug_LOG_INFO("Object i: (X,Y, Height)");
+    for(int i = 0; i < object_data_arr_len; i += 3){
+        Debug_LOG_INFO("Object %i: (%f,%f, %f)", i/3, buf[i], buf[i+1], buf[i+2]);
+    }
 
-//     // Clean up
-//     if((ret = OS_FileSystem_unmount(hFs)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystem_unmount() failed, code %d", ret);
-//     }
+    // Close file
+    if((ret = OS_FileSystemFile_close(hFs, hFile)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystemFile_close() failed, code %d", ret);
+    }
 
-//     if ((ret = OS_FileSystem_free(hFs)) != OS_SUCCESS)
-//     {
-//         Debug_LOG_ERROR("OS_FileSystem_free() failed, code %d", ret);
-//     }
-// }
+    // Clean up
+    if((ret = OS_FileSystem_unmount(hFs)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystem_unmount() failed, code %d", ret);
+    }
+
+    if ((ret = OS_FileSystem_free(hFs)) != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_FileSystem_free() failed, code %d", ret);
+     }
+}
 
 //----------------------------------------------------------------------
 // Network
@@ -287,7 +292,7 @@ float * parseLidarPosition(char *buffer){
 //------------------------------------------------------------------------------
 
 
-float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * n_lidar_points){
+float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * lidar_points_arr_len){
     int number_of_points = 0;
     float * lidar_data[100];
     int lidar_data_sizes[100];
@@ -308,7 +313,7 @@ float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * n_l
         Debug_LOG_INFO("point to data %d \n", lidar_data_sizes[i]);
     }
     Debug_LOG_INFO("total number of points %d \n", total_length / 3);
-    memcpy(n_lidar_points, &total_length, sizeof(int));
+    memcpy(lidar_points_arr_len, &total_length, sizeof(int));
     float * lidar_points = (float *)malloc(total_length * sizeof(float));
     int cur = 0;
     for (int i = 0; i < pos;  i++ ){
@@ -322,17 +327,17 @@ float * executeHorizontalScan(OS_Socket_Handle_t socket, char *buffer, int * n_l
 }
 
 
-float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * lidar_points, int n_lidar_points){
-    float lowestZ = lidar_points[n_lidar_points-1];
+float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * lidar_points, int lidar_points_arr_len){
+    float lowestZ = lidar_points[lidar_points_arr_len-1];
     Debug_LOG_INFO("Lowest Z %f\n",  lowestZ);
     int pos;
-    for (int i = 0; i <= n_lidar_points - 3; i += 3){
+    for (int i = 0; i <= lidar_points_arr_len - 3; i += 3){
         if (lidar_points[i + 2] == lowestZ){
             pos = i;
             break;
         }
     }
-    float landing_points[n_lidar_points - pos][3];
+    float landing_points[lidar_points_arr_len - pos][3];
 
     int max_distance = 5;
 
@@ -342,7 +347,7 @@ float *  evaluateLandingTarget(OS_Socket_Handle_t socket, char *buffer, float * 
     int n = 1;
     int landing_point_n = 0;
 
-    for (int i = pos + 3; i <= n_lidar_points - 3; i += 3){
+    for (int i = pos + 3; i <= lidar_points_arr_len - 3; i += 3){
         Debug_LOG_INFO("Cur lidar_point %f %f \n", lidar_points[i], lidar_points[i+1]);
         float x = lidar_points[i];
         float y = lidar_points[i+1];
@@ -472,7 +477,7 @@ float * detectExactLandingPoint(OS_Socket_Handle_t socket, char *buf, float* buf
 
     int pointcloud1_len = buf1_len - start_highest_point1;
     int pointcloud2_len = buf2_len - start_highest_point2;
-    Debug_LOG_INFO("GOt here ... %d %d \n ", pointcloud1_len, pointcloud2_len);
+    Debug_LOG_INFO("Got here ... %d %d \n ", pointcloud1_len, pointcloud2_len);
     short ignore_lidar = 0;
     if(fabs(lowest_z1 - lowest_z2) > 1){
         if(lowest_z1 < lowest_z2)
@@ -670,22 +675,20 @@ int run()
     Debug_LOG_INFO("Send request to host...");
     static char buffer[OS_DATAPORT_DEFAULT_SIZE];
     
-    int n_lidar_points = 0;
-    float * lidar_points = executeHorizontalScan(hSocket, buffer, &n_lidar_points);        
-    // for (int  i = 0; i <= n_lidar_points - 3; i += 3 ){
+    int lidar_points_arr_len = 0;
+    float * lidar_points = executeHorizontalScan(hSocket, buffer, &lidar_points_arr_len);        
+    // for (int  i = 0; i <= lidar_points_arr_len - 3; i += 3 ){
     //     Debug_LOG_INFO("Cur point %f %f %f\n", lidar_points[i], lidar_points[i + 1], lidar_points[i + 2]);
     // }
-    int lidar_points_len = n_lidar_points/3;
-    int object_data_len = 0;
-    Debug_LOG_INFO("getSurroundingObjectsData");  
-    float * object_data = getSurroundingObjectsData(lidar_points, lidar_points_len, &object_data_len);
-    Debug_LOG_INFO("getSurroundingObjectsData done: %i", object_data_len); 
+    int object_data_arr_len = 0;
+    float * object_data = getSurroundingObjectsData(lidar_points, lidar_points_arr_len, &object_data_arr_len);
+    Debug_LOG_INFO("getSurroundingObjectsData done: found %i objects.", object_data_arr_len/3); 
 
-    for (int i = 0; i < object_data_len * 3; i += 3) {
-        Debug_LOG_INFO("Object at : %f %f %f ", object_data[i], object_data[i+1], object_data[i+2]);
+    for (int i = 0; i < object_data_arr_len; i += 3) {
+        Debug_LOG_INFO("Object at: (%f, %f, %f) ", object_data[i], object_data[i+1], object_data[i+2]);
     }
     
-    float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, n_lidar_points);
+    float * landingPosition = evaluateLandingTarget(hSocket, buffer, lidar_points, lidar_points_arr_len);
     
     Debug_LOG_INFO("Landing position %f %f %f\n", landingPosition[0], landingPosition[1], landingPosition[2]);
     Debug_LOG_INFO("Test flyToLandingPosition()\n");
@@ -706,8 +709,8 @@ int run()
     // ----------------------------------------------------------------------
 
     // Work on file system 1 (residing on partition 1)
-    // test_OS_FileSystem(&spiffsCfg_1);
-
+    writeObjectDataToFile(&spiffsCfg_1, object_data, object_data_arr_len);
+    free(object_data);
     // Work on file system 2 (residing on partition 2)
     // test_OS_FileSystem(&spiffsCfg_2);
 

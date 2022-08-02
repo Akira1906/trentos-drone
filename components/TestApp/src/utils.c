@@ -125,7 +125,7 @@ float * getClosestObjectMiddlePoint(float * middle_points, int n_middle_points, 
 
 
 /* 
-        Filters a 2-dimensional pointcloud array for their z value exactly. The array is filtered by overriding the old
+        Filters a pointcloud array for their a z value exactly. The array is filtered by overriding the old
         array with the filtered elements. The functions returns a pointer to one past the end of this now filtered array.
         Args:
             float *pointcloudBegin          : Pointer to the first element of the pointcloud array
@@ -186,19 +186,20 @@ int roughlyFilterHighestPoints(float * points, int length, float accuracy){
 
 
 /*
-        Filters each z-level of horizontal lidar data for objects. Combines the objects of each z-level to one object array
-        which contains the objects contained in the lidar_points and their respective height.
+        Filters each z-level of horizontal lidar data for objects. Combines the objects detected in each z-level to one object array.
+        This object data contains the location of the objects and it's respective height as z-coordinate.
         Args:
             float *lidar_points         : Pointer to the pointcloud array
-            int lidar_points_len        : Length of the pointcloud array (number of points)
+            int lidarpoints_arr_len     : Length of the pointcloud array
             int *object_data_len        : Pointer to return the length of object_data (number of objects)
         Returns:
             float *object_data          : Pointer to the object data array
 
 
 */
-float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, int * return_len) {
-    int max_distance = MAX_DIST;//TODO set max dist
+float * getSurroundingObjectsData (float * lidar_points, int lidarpoints_arr_len, int * return_len) {
+    int lidar_points_len = lidarpoints_arr_len / 3;
+
     float * objects_coordinates_per_level = malloc(sizeof(float) * lidar_points_len * 3);
     float * objects_coordinates_pos = objects_coordinates_per_level;
     float * lidar_points_level_pos = lidar_points;
@@ -218,6 +219,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
     while(lidar_points_len > 0){
         float highestZ = lidar_points_pos[2];
         //Debug_LOG_INFO("highestZ: %f", highestZ);
+        
         //Debug_LOG_INFO("lidar_points_len before: %i", lidar_points_len);
         for(;lidar_points_pos[2] == highestZ && lidar_points_len > 0; lidar_points_pos += 3){
             lidar_points_len--;
@@ -237,7 +239,6 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
         //}
 
         memcpy(objects_coordinates_pos, objects_coordinates, local_objects_coordinates_len * sizeof(float) * 3);
-        //copy discovered coordinates
 
         objects_coordinates_len += local_objects_coordinates_len;
         objects_coordinates_pos += local_objects_coordinates_len * 3;
@@ -247,9 +248,6 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
         //Debug_LOG_INFO("getSurroundingObjectsData: new layer");
         }
         //Debug_LOG_INFO("getSurroundingObjectsData: Number of total objects detected in all scan layers: %i'", objects_coordinates_len);
-        
-
-        //now we have the number of the objects and their coordinates
 
         objects_coordinates_pos = objects_coordinates_per_level + (3 * (objects_coordinates_len - 1)); // points to the last element of the array
         float * objects_coordinates_level_pos = objects_coordinates_pos;
@@ -265,7 +263,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
 
                 for(int i =0; i<object_data_len; i++){
 
-                    if((float)distance(objects_coordinates_pos[0],objects_coordinates_pos[1], (object_data + 3 * i)) < max_distance){
+                    if((float)distance(objects_coordinates_pos[0],objects_coordinates_pos[1], (object_data + 3 * i)) < MAX_DIST){
                         ((object_data + 3 * i)[0]) = (objects_coordinates_pos[0] + ((object_data + 3 * i)[0]))/2;
                         ((object_data + 3 * i)[1]) = (objects_coordinates_pos[1] + ((object_data + 3 * i)[1]))/2;
                         found = true;
@@ -274,7 +272,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
                 }
 
                 if(!found){
-                    //Debug_LOG_INFO("getSurroundingObjectsData: new independent point discovered: %f %f %f", objects_coordinates_pos[0], objects_coordinates_pos[1], objects_coordinates_pos[2]);
+                    //printf("getSurroundingObjectsData: new independent point discovered: %f %f %f\n", objects_coordinates_pos[0], objects_coordinates_pos[1], objects_coordinates_pos[2]);
                     memcpy((object_data + (3 * object_data_len)), objects_coordinates_pos, 3 * sizeof(float));
                     object_data_len ++;
                 }
@@ -283,11 +281,8 @@ float * getSurroundingObjectsData (float * lidar_points, int lidar_points_len, i
             objects_coordinates_level_pos = objects_coordinates_pos;
         }
 
-        //now object_data should contain all the position and heights of
+        //now object_data contains all the position and heights of objects in the environment of the drone
 
-    
-
-    //object_coordinates_per_level now contains all the calculated object positons separated by scanning level
-    *return_len = object_data_len;
+    *return_len = 3 * object_data_len;
     return object_data;
 }

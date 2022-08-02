@@ -3,30 +3,46 @@
 # Sample settings.json used for this script:
 '''
 {
-  "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings_json.md",
-  "SettingsVersion": 1.2,
-
-  "SimMode": "Multirotor",
-
-   "Vehicles": {
-      "Drone1": {
-          "VehicleType": "SimpleFlight",
-          "AutoCreate": true,
-          "Sensors": {
-              "Distance": {
-                  "SensorType": 5,
-                  "Enabled" : true,
-                  "Yaw": 0, "Pitch": -90, "Roll": 0
-              },
-              "LidarSensorHor": { 
+    "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings_json.md",
+    "SettingsVersion": 1.2,
+  
+    "SimMode": "Multirotor",
+  
+     "Vehicles": {
+        "Drone1": {
+            "VehicleType": "SimpleFlight",
+            "AutoCreate": true,
+            "Sensors": {
+                "Distance": {
+                    "SensorType": 5,
+                    "Enabled" : true,
+                    "Yaw": 0, "Pitch": -90, "Roll": 0
+                },
+                "LidarSensorHor": { 
+                    "SensorType": 6,
+                    "Enabled" : true,
+                    "NumberOfChannels": 1,
+                    "RotationsPerSecond": 10,
+                    "Range":100,
+                    "PointsPerSecond": 2000,
+                    "X": 0, "Y": 0, "Z": -1,
+                    "Roll": 0, "Pitch": 0, "Yaw" : 0,
+                    "VerticalFOVUpper": 0,
+                    "VerticalFOVLower": 0,
+                    "HorizontalFOVStart": 0,
+                    "HorizontalFOVEnd": 0,
+                    "DrawDebugPoints": true,
+                    "DataFrame": "SensorLocalFrame"
+                },
+                "LidarSensorVer1": { 
                   "SensorType": 6,
                   "Enabled" : true,
                   "NumberOfChannels": 1,
                   "RotationsPerSecond": 10,
                   "Range":100,
-                  "PointsPerSecond": 8000,
+                  "PointsPerSecond": 1000,
                   "X": 0, "Y": 0, "Z": -1,
-                  "Roll": 0, "Pitch": 0, "Yaw" : 0,
+                  "Roll": 0, "Pitch": 90, "Yaw" : 0,
                   "VerticalFOVUpper": 0,
                   "VerticalFOVLower": 0,
                   "HorizontalFOVStart": 0,
@@ -34,42 +50,26 @@
                   "DrawDebugPoints": true,
                   "DataFrame": "SensorLocalFrame"
               },
-              "LidarSensorVer1": { 
+              "LidarSensorVer2": { 
                 "SensorType": 6,
                 "Enabled" : true,
                 "NumberOfChannels": 1,
                 "RotationsPerSecond": 10,
                 "Range":100,
-                "PointsPerSecond": 8000,
+                "PointsPerSecond": 1000,
                 "X": 0, "Y": 0, "Z": -1,
-                "Roll": 0, "Pitch": 90, "Yaw" : 0,
+                "Roll": 0, "Pitch": 90, "Yaw" : 90,
                 "VerticalFOVUpper": 0,
                 "VerticalFOVLower": 0,
                 "HorizontalFOVStart": 0,
                 "HorizontalFOVEnd": 0,
                 "DrawDebugPoints": true,
                 "DataFrame": "SensorLocalFrame"
-            },
-            "LidarSensorVer2": { 
-              "SensorType": 6,
-              "Enabled" : true,
-              "NumberOfChannels": 1,
-              "RotationsPerSecond": 10,
-              "Range":100,
-              "PointsPerSecond": 8000,
-              "X": 0, "Y": 0, "Z": -1,
-              "Roll": 0, "Pitch": 90, "Yaw" : 90,
-              "VerticalFOVUpper": 0,
-              "VerticalFOVLower": 0,
-              "HorizontalFOVStart": 0,
-              "HorizontalFOVEnd": 0,
-              "DrawDebugPoints": true,
-              "DataFrame": "SensorLocalFrame"
-          }
-          }
-      }
+            }
+            }
+        }
+    }
   }
-}
 '''
 
 import airsim
@@ -653,6 +653,8 @@ if __name__ == "__main__":
     distanceName = "Distance"
     vehicleName = "Drone1"
 
+    lidarTest.debugShowPointPosition([23, -12, 0])
+
     #lidarTest.test(vehicleName, distanceName)
     # flightSequence: 0 - detect highest point, 1 - fly to highest position, 2 - detect landing point, 3 - landing
     #-----------------------
@@ -668,6 +670,7 @@ if __name__ == "__main__":
 
     for object in objectDataToSave:
         lidarTest.debugShowPointPosition(object)
+        print(object)
     
     #-----------------------
     flightSequence = 1
