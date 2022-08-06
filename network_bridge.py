@@ -15,13 +15,16 @@ class AirSimClient:
     def __init__(self):
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
-        #self.client.reset()
+    
         self.client.enableApiControl(True)
         self.client.armDisarm(True)
         print('Connected!\n')
 
 
     def process_lidar_data(self, lidar_data):
+        """
+            Doing basic projection for raw lidar data provided by airsim demos
+        """
         data = []
         orientation = lidar_data.pose.orientation
         q0, q1, q2, q3 = orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val
@@ -43,6 +46,11 @@ class AirSimClient:
         return data
         
     def execute_command(self, command):
+        """
+            Executing command via client api
+            Return command execution completed data (for movement commands)
+            Return requested data for data commands
+        """
         if command["type"] == "getLidarData":
             lidar_data = self.client.getLidarData(lidar_name = LIDARS[command["lidar"]], vehicle_name = VEHICLE)
             data = self.process_lidar_data(lidar_data)
@@ -83,7 +91,11 @@ class AirSimClient:
             self.client.rotateByYawRateAsync(command["yaw_rate"], command["duration"], VEHICLE).join()
             return {"type": "executed_command"}
 
+
 def parse_command(data):
+    """
+        Parse raw data for command types and arguments
+    """
     command_byte = struct.unpack("<H", data[:2])[0]
     
     if command_byte == 0:
@@ -130,6 +142,10 @@ def parse_command(data):
         return {"type": "rotateByYawRateAsync", "yaw_rate": yaw_rate, "duration": duration}
 
 def serialize_result(result):
+    """
+        Serialize data into bytestream
+        Results consists of  - 2 bytes of size of original data  + n bytes of serialized result
+    """
     resp = b""
     if result["type"] == "lidar_data":
         lidar_data = result["data"]
@@ -139,7 +155,6 @@ def serialize_result(result):
         resp += struct.pack("<H", total_size)
         resp += struct.pack("<I", n_point_clouds)
         for x in lidar_data:
-            print(x)
             resp += struct.pack("<f", x)
     elif result["type"] == "lidar_data_position":
         total_size = 12
@@ -152,12 +167,10 @@ def serialize_result(result):
         resp += struct.pack("<H", 2)
         resp += struct.pack("<H", 1)
 
-    print(len(resp))
     return resp
 
 def main():
     airsim_client = AirSimClient()
-    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
@@ -168,7 +181,6 @@ def main():
             print(f"Connected by {addr}")
             while True:
                 data = conn.recv(1024)
-                print(data)
                 if not data:
                     break
                 try:
@@ -176,11 +188,13 @@ def main():
                 except Exception as e:
                     print(e)
                     continue
-                print(command)
+                print("Received command ", command)
                 result = airsim_client.execute_command(command)
-                # print(result)
+                print(f"Sending result..")
                 resp = serialize_result(result)
+                print("Response length ", len(resp))
                 conn.sendall(resp)
+                print(" ------------------- ")
 
 
 if __name__ == "__main__":

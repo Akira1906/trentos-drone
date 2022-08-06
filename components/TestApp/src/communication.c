@@ -6,10 +6,14 @@
 
 #include "lib_debug/Debug.h"
 #include <string.h>
-// #include "utils.h"
 #include <camkes.h>
-// #include <math.h>
 #include "communication.h"
+
+
+/*
+    General function to send data and wait for reponse
+    response is kept in buffer provided by user
+*/
 
 void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, char *  buffer){
     size_t n;
@@ -40,9 +44,6 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
         switch (ret)
         {
         case OS_SUCCESS:
-            // Debug_LOG_INFO(
-            //     "OS_Socket_read() received %zu bytes of data",
-            //     actualLenRecv);
             continue;
 
         case OS_ERROR_TRY_AGAIN:
@@ -68,7 +69,6 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     }
     while (ret != OS_SUCCESS);
 
-    // Debug_LOG_INFO("Packet size %d\n", packet_size);
 
     size_t data_read = 0;
     char* position = buffer;
@@ -79,13 +79,10 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     {
         ret = OS_Socket_read(socket, position, packet_size - data_read, &read);
 
-        // Debug_LOG_INFO("OS_Socket_read() - bytes read: %d, err: %d", read, ret);
-
         switch (ret)
         {
         case OS_SUCCESS:
             data_read += read;
-            // Debug_LOG_INFO("Total data read  %d  left %d\n", data_read, packet_size - data_read); 
             position += data_read;
             break;
         case OS_ERROR_CONNECTION_CLOSED:
@@ -110,7 +107,6 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
     
 }
 
-
 void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
     uint16_t request[2] = {0, lidar};
     size_t len_request = sizeof(uint16_t) * 2;
@@ -126,11 +122,11 @@ void getLidarPosition(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
     getData(socket, (char *)request, len_request, buffer);
 }
 
+
 void getDistance(OS_Socket_Handle_t socket, char * buffer){
     uint16_t command = 7;
     getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
 }
-
 
 void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
     uint16_t takeoff = 1;
