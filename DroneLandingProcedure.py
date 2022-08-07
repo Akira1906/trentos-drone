@@ -104,9 +104,9 @@ class LidarTest:
         print("state: %s" % pprint.pformat(state))
         return state
     
-    def debugShowPointPosition(self, coordinates):
+    def debugShowPointPosition(self, coordinates, color_rgba):
         coordinatesVector = [airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2]), airsim.Vector3r(coordinates[0], coordinates[1], coordinates[2] - 20)]
-        self.client.simPlotLineStrip(coordinatesVector, color_rgba=[0.0, 1.0, 0.0, 1.0], thickness=30.0, duration=60.0, is_persistent=False)
+        self.client.simPlotLineStrip(coordinatesVector, color_rgba=color_rgba, thickness=30.0, duration=60.0, is_persistent=False)
 
 #---------------------------------------------------------------------------------------
 # GENERAL DATA PARSING/PROCESSING
@@ -501,9 +501,9 @@ class LidarTest:
             landingPosition ([float, float, float]) : List of the 3 coordinates of the landing point
 
     """
-    def flyToLandingPosition(self, vehicleName, lidarNames, distanceName, landingPosition):
+    def flyToLandingPosition(self, vehicleName, lidarName, distanceName, landingPosition):
         #determines the position of the landing platform relative to the drone
-        currPosition = self.client.getLidarData(lidarNames[0], vehicleName).pose.position
+        currPosition = self.client.getLidarData(lidarName, vehicleName).pose.position
         xDifference = landingPosition[0] - currPosition.x_val
         yDifference = landingPosition[1] - currPosition.y_val
         distanceToDrone = np.sqrt(pow(xDifference, 2) + pow(yDifference, 2))
@@ -530,7 +530,7 @@ class LidarTest:
             
         self.client.moveByRollPitchYawZAsync(
             roll = 0, pitch = -6 * flightPitch, yaw = yawAngle,
-            z = landingPosition[2]-3, duration = 3,
+            z = landingPosition[2]-3, duration = 3.5,
             vehicle_name = vehicleName).join()
 
 
@@ -653,8 +653,6 @@ if __name__ == "__main__":
     distanceName = "Distance"
     vehicleName = "Drone1"
 
-    lidarTest.debugShowPointPosition([23, -12, 0])
-
     #lidarTest.test(vehicleName, distanceName)
     # flightSequence: 0 - detect highest point, 1 - fly to highest position, 2 - detect landing point, 3 - landing
     #-----------------------
@@ -666,10 +664,10 @@ if __name__ == "__main__":
          lidarNames[0],
           vehicleName)
     
-    lidarTest.debugShowPointPosition(landingTarget)
+    lidarTest.debugShowPointPosition(landingTarget, [0.0, 1.0, 0.0, 1.0])
 
     for object in objectDataToSave:
-        lidarTest.debugShowPointPosition(object)
+        #lidarTest.debugShowPointPosition(object, [0.0, 1.0, 0.0, 1.0])
         print(object)
     
     #-----------------------
@@ -679,7 +677,7 @@ if __name__ == "__main__":
     #lidarTest.client.moveToPositionAsync(landingTarget[0], landingTarget[1], landingTarget[2]-3, 10).join()
     lidarTest.flyToLandingPosition(vehicleName, lidarNames[0], distanceName, landingTarget)
     print("Sequence 1: reached landing destination")
-    #time.sleep(5)
+    time.sleep(7)
     
     #-----------------------
     flightSequence = 2
@@ -691,7 +689,7 @@ if __name__ == "__main__":
           lidarNames[1:],
            vehicleName)
     
-    lidarTest.debugShowPointPosition(landingTarget1)
+    lidarTest.debugShowPointPosition(landingTarget1, [0.0, 0, 1.0, 1.0])
 
     lidarTest.client.rotateByYawRateAsync(45, 1, vehicleName).join()
     time.sleep(1)
@@ -703,11 +701,11 @@ if __name__ == "__main__":
           lidarNames[1:],
            vehicleName)
 
-    lidarTest.debugShowPointPosition(landingTarget2)
+    lidarTest.debugShowPointPosition(landingTarget2, [0.0, 0.0, 1.0, 1.0])
 
     landingTarget = [(landingTarget1[0]+landingTarget2[0])/2,(landingTarget1[1]+landingTarget2[1])/2, (landingTarget1[2] + landingTarget2[2])/2]
 
-    lidarTest.debugShowPointPosition(landingTarget)
+    lidarTest.debugShowPointPosition(landingTarget, [1.0, 0.0, 0.0, 1.0])
     
     #-----------------------
     flightSequence = 3
