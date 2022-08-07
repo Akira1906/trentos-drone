@@ -103,74 +103,86 @@ void getData(OS_Socket_Handle_t socket, char * request, uint16_t len_request, ch
                             ret, (size_t) (position - buffer));
         }
     }
-
     
 }
 
 void getLidarData(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
-    uint16_t request[2] = {0, lidar};
-    size_t len_request = sizeof(uint16_t) * 2;
+    uint16_t request[3] = {4, 0, lidar};
+    size_t len_request = sizeof(uint16_t) * 3;
 
     getData(socket, (char *)request, len_request, buffer);
 }
 
 
 void getLidarPosition(OS_Socket_Handle_t socket, char * buffer, uint16_t lidar){
-    uint16_t request[2] = {8, lidar};
-    size_t len_request = sizeof(uint16_t) * 2;
+    uint16_t request[3] = {4, 8, lidar};
+    size_t len_request = sizeof(uint16_t) * 3;
 
     getData(socket, (char *)request, len_request, buffer);
 }
 
 
 void getDistance(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t command = 7;
-    getData(socket, (char *)&command, sizeof(uint16_t), buffer);   
+    // uint16_t command = 7;
+    uint16_t request[2] = {2, 7};
+    size_t len_request = sizeof(uint16_t) * 2;
+
+    getData(socket, (char *)request, len_request, buffer);   
 }
 
-void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t takeoff = 1;
-    getData(socket, (char *)&takeoff, sizeof(uint16_t), buffer);
+void sendTakeOffCommand(OS_Socket_Handle_t socket, char * buffer){
+    // uint16_t takeoff = 1;
+    uint16_t request[2] = {2, 1};
+    size_t len_request = sizeof(uint16_t) * 2;
+    getData(socket, (char *)request, len_request, buffer);
 }
 
 void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer){
-    uint16_t hover = 2;
-    getData(socket, (char *)&hover, sizeof(uint16_t), buffer);
+    // uint16_t hover = 2;
+    uint16_t request[2] = {2, 2};
+    size_t len_request = sizeof(uint16_t) * 2;
+    getData(socket, (char *)request, len_request, buffer);
 }
 
 void sendMoveByRollPitchYawZAsyncCommand(OS_Socket_Handle_t socket, char *buffer, float roll, float pitch, float yaw, float z, float duration){
     float data[5] = {roll, pitch, yaw, z, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 5);
+    char * request = malloc(sizeof(uint16_t) * 2 + sizeof(float) * 5);
     uint16_t command = 6;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 5);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 5, buffer);
+    uint16_t data_size = 2 + 20; //Command_id + float * 4
+    memcpy(request, &data_size, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t) * 2, data, sizeof(float) * 5);
+    getData(socket, request, sizeof(uint16_t) * 2 + sizeof(float) * 5, buffer);
     free(request);
 }
 
 void sendMoveByVelocityBodyFrameCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float vz, float duration){
     float data[4] = {vx, vy, vz, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
+    char * request = malloc(sizeof(uint16_t) * 2 + sizeof(float) * 4);
     uint16_t command = 4;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
+    uint16_t data_size = 2 + 16;
+    memcpy(request, &data_size, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t) * 2, data, sizeof(float) * 4);
+    getData(socket, request, sizeof(uint16_t) * 2 + sizeof(float) * 4, buffer);
     free(request);
 }
 
 void sendMoveByVelocityZCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float z, float duration){
     float data[4] = {vx, vy, z, duration};
-    char * request = malloc(sizeof(uint16_t) + sizeof(float) * 4);
+    char * request = malloc(sizeof(uint16_t) * 2 + sizeof(float) * 4);
     uint16_t command = 9;
-    memcpy(request, &command, sizeof(uint16_t));
-    memcpy(request + sizeof(uint16_t), data, sizeof(float) * 4);
-    getData(socket, request, sizeof(uint16_t) + sizeof(float) * 4, buffer);
+    uint16_t data_size = 2 + 16;
+    memcpy(request, &data_size, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t), &command, sizeof(uint16_t));
+    memcpy(request + sizeof(uint16_t) * 2, data, sizeof(float) * 4);
+    getData(socket, request, sizeof(uint16_t) * 2  + sizeof(float) * 4, buffer);
     free(request);
 }
 
 void sendRotateByYawRateCommand(OS_Socket_Handle_t socket, char *buffer, uint16_t yaw_rate, uint16_t duration){
-    uint16_t request[3] = {10, yaw_rate, duration};
-    size_t len_request = sizeof(uint16_t) * 3;
+    uint16_t request[4] = {6, 10, yaw_rate, duration};
+    size_t len_request = sizeof(uint16_t) * 4;
 
     getData(socket, (char *)request, len_request, buffer);
 }

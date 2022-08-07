@@ -22,7 +22,7 @@ void getDistance(OS_Socket_Handle_t socket, char * buffer);
 
 /* All the rest send commands and their respective arguments, wait for response from the simulator that command was executed */
 
-void sendTakOffCommand(OS_Socket_Handle_t socket, char * buffer);
+void sendTakeOffCommand(OS_Socket_Handle_t socket, char * buffer);
 void sendHoverCommand(OS_Socket_Handle_t socket, char * buffer);
 void sendMoveByRollPitchYawZAsyncCommand(OS_Socket_Handle_t socket, char *buffer, float roll, float pitch, float yaw, float z, float duration);
 void sendMoveByVelocityBodyFrameCommand(OS_Socket_Handle_t socket, char *buffer, float vx, float vy, float vz, float duration);

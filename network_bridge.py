@@ -2,7 +2,6 @@ import socket
 import airsim
 import struct
 import numpy as np
-
 HOST = "0.0.0.0"
 PORT = 8888
 
@@ -164,10 +163,27 @@ def serialize_result(result):
         resp += struct.pack("<H", 4)
         resp += struct.pack("<f", result["data"])
     elif result["type"] == "executed_command":
-        resp += struct.pack("<H", 2)
         resp += struct.pack("<H", 1)
+        resp += struct.pack("<B", 1)
 
     return resp
+
+
+def wait_for_data(conn):
+    stream = b""
+    while True:
+        data = conn.recv(1024)
+        if not data:
+            break
+        else:
+            stream += data
+        
+        if len(stream) >= 2:
+            length = struct.unpack("<H", stream[:2])[0]
+            if len(stream[2:]) == length:
+                break
+    
+    return stream[2:]
 
 def main():
     airsim_client = AirSimClient()
@@ -180,9 +196,8 @@ def main():
         with conn:
             print(f"Connected by {addr}")
             while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
+                data = wait_for_data(conn)
+                if not data: break
                 try:
                     command = parse_command(data)
                 except Exception as e:
