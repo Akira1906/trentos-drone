@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define MAX_DIST 12
+#define MAX_DIST 15
 #define MAX_DOUBLE 100000000000000
 
 double distance (float x, float y, float * end_point){
@@ -219,7 +219,7 @@ float * getSurroundingObjectsData (float * lidar_points, int lidarpoints_arr_len
     while(lidar_points_len > 0){
         float highestZ = lidar_points_pos[2];
         //Debug_LOG_INFO("highestZ: %f", highestZ);
-        
+
         //Debug_LOG_INFO("lidar_points_len before: %i", lidar_points_len);
         for(;lidar_points_pos[2] == highestZ && lidar_points_len > 0; lidar_points_pos += 3){
             lidar_points_len--;
